@@ -1,18 +1,26 @@
-# Music content and Spotify: permission checkpoint
+# Spotify integration checkpoint
 
-This app is private by intent, but private/personal use does **not** by itself prove that Spotify permits a music-guessing game or that API access grants music/game rights. Earlier advice in this project conversation suggesting that Spotify had approved this use was too confident; no approval has been obtained.
+This repository has **not** been approved by Spotify, and private/personal use does not itself establish permission for a music quiz/game. No Spotify API credentials, playback SDK, catalog harvesting, or audio downloading are implemented.
 
-Spotify's developer terms and policies can change. Before building a Spotify-backed quiz, ask Spotify directly whether this specific private song-guessing/game use is allowed under the current terms and whether any separate music rights are needed. Do not treat an API key, Developer Mode access, Premium subscription, an embed, or a track ID as permission for game use.
+The prototype supports a manually curated Spotify track ID and displays Spotify's official embedded player **only after the answer is revealed**. The official embed is included as a post-round listening convenience, not used to conceal the answer or provide short song clips. Track names and artwork can be visible in the player, and the embed controls/behavior are governed by Spotify.
 
-Also verify current API availability before designing around previews. Preview URLs have changed over time and may not be returned to new apps. Do not download, cache, rehost, trim, or extract Spotify audio. Use only a Spotify-provided playback method and presentation that Spotify explicitly permits for the approved use. Album artwork and metadata have their own display/attribution requirements; follow current official documentation.
+Before using Spotify content in this game, verify directly against current Spotify terms and/or obtain written confirmation for the specific use. Confirm whether a quiz/game, staged replay, track metadata, album art, and embeds are each allowed. Do not assume Premium, a private repository, a private deployment, an embed, or not storing audio is equivalent to permission. This code does not bypass restrictions and does not download, cache, trim, or rehost Spotify audio.
 
-## Before connecting a provider
+## Manual track entry
 
-- [ ] Confirm the exact game use with Spotify/rights holder and save the written response.
-- [ ] Confirm whether preview playback, staged replay, seeking, artwork, and metadata display are each permitted.
-- [ ] Confirm the current Developer Mode user limits, account requirements, API access, and any approval process in official docs.
-- [ ] If Spotify does not approve the gameplay, choose audio you own or a source with a license that explicitly permits this use.
-- [ ] Keep client secrets on a server and out of Git/frontend bundles. Use environment variables and a local `.env` excluded from version control.
-- [ ] Only import tracks you personally curate or otherwise have permission to use; don't scrape a game/site or bulk-copy a catalog.
+If and only if you have confirmed the intended use is permitted, add `spotifyTrackId` to a song in `src/data/songs.ts`. Use the 22-character track ID from the Spotify track URI/URL, not an audio URL. Keep the list curated; do not scrape or bulk-copy another game's catalog.
 
-No Spotify credentials or integration code are included in this repository. This document is implementation guidance, not legal advice.
+Example shape (placeholder only; not a real track):
+
+```ts
+{
+  id: 'your-internal-id',
+  title: 'Track title',
+  artist: 'Artist name',
+  hint: 'A brief clue you wrote yourself; do not use lyrics.',
+  genres: ['contemporary-worship'],
+  spotifyTrackId: '0123456789ABCDEFGHIJKL',
+}
+```
+
+This setup intentionally does not store Spotify media. The only provider element is Spotify's own iframe embed after the round. For actual staged audio, choose a source that explicitly permits this gameplay and supports short clips/seeking; do not try to work around Spotify embed controls.

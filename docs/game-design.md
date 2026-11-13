@@ -1,26 +1,19 @@
-# Game design groundwork
+# Game rules and genre groundwork
 
-## Round loop
+## Current prototype rules
 
-The game can use a staged-reveal loop: play a short segment, allow a guess or skip, then unlock a longer segment. A reasonable *starting proposal* is 1, 3, 5, 10, and 15 seconds, with a final reveal/answer step. Tune these values only after choosing an audio provider that permits this use and supports reliable playback/seeking. Very tiny clips (for example 0.1 seconds) are difficult to hear, may be rounded by browsers, and should not be assumed to work consistently.
+- One daily answer is selected deterministically from the chosen genre's catalog and the UTC date.
+- The first listening stage is 1 second. The staged progression is **1s → 3s → 5s → 10s → 15s**.
+- Guessing is unlimited within a stage. An incorrect guess advances to the next stage.
+- Skip advances a stage without a guess. At the final stage, a wrong guess or skip reveals the answer and awards zero points.
+- A correct answer scores **1000, 800, 600, 400, or 200 points**, respectively, depending on the stage. These are original, configurable starting values, not copied from another game's scoring table.
+- The answer and correct choice are revealed only after the round ends. No game state is stored between page loads in this prototype.
+- Genre selection uses one broad tag at a time; each song can have multiple tags. Very small genre pools are expected until you add more catalog entries.
 
-Suggested round rules:
+## Audio-source constraint
 
-- One song per daily puzzle; optional genre mode can filter the eligible catalog before choosing the daily song.
-- A wrong guess or an explicit skip advances one stage. Replaying the currently unlocked segment does not.
-- Guessing remains unlimited within the current stage; this keeps the game accessible and avoids punishing spelling/selection mistakes.
-- The answer is shown after a correct guess or the final reveal.
-- Score can be based on the stage at which the answer is found; keep scoring separate from the puzzle-selection logic.
-- Store local progress by date and game mode. For cross-device consistency, the puzzle assignment must eventually come from a server or a shared seed/catalog version.
-
-These are original design recommendations, not a claim about the target site's current rules. Don't copy its branding, source code, catalog, or recordings.
+These stages currently model the game rules; the app does **not** play staged audio. Spotify's official embed is only displayed after the answer is revealed, if a curated Spotify track ID is present. The embed is an official Spotify player, not an audio file hosted by this app. It does not give the app control to crop playback to 1/3/5/10/15-second segments, guarantee a particular starting offset, or hide player information during the mystery round. Do not claim the clip progression works until an audio source explicitly permits and technically supports it.
 
 ## Genre approach
 
-Christian music spans many overlapping styles. Start with the broad tags in `src/data/genres.ts`, permit multiple tags per song, and keep `other` as a safe fallback. Add a genre only when the catalog has enough songs to support a fun mode. Later, genre mode can offer a few broad groups (Worship & Gospel, Rock & Alternative, Pop & Urban, Roots & Global, Other) instead of presenting a long list of microgenres.
-
-Genre data should describe sound/style, not make theological judgments. Optionally add separate catalog fields such as language, decade, mood, or worship-context if those become useful.
-
-## Suggested song record
-
-Each real record should have a stable ID, title, artist, genre tags, a provider track ID, a concise non-lyric clue, and a provider-approved playback reference. Track whether the track and its artwork are actually usable in this game; a public API search result alone is not proof of permission.
+Start with broad categories in `src/data/genres.ts`, allow multiple tags per song, and keep `other` as a fallback. Only add a narrow subgenre when your library has enough tracks for a satisfying round. A later mode can offer genre groups (Worship & Gospel, Rock & Alternative, Pop & Urban, Roots & Global, Other). Tags describe musical style, not theological judgments.
