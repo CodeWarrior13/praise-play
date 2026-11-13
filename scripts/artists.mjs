@@ -335,11 +335,9 @@ R-Swift | hiphop | 3
 Alex Jean | hiphop | 3
 Not Klyde | auto | 3
 Dell Mac | auto | 3
-CBertis | auto | 3
 LOGE | auto | 3
 LOST & FOUND | auto | 3
 Chelsea Plank | auto | 3
-Henrik | auto | 3
 Elyssa Figueroa | auto | 3
 John Wilds | auto | 3
 Jonathan Stamper | auto | 3

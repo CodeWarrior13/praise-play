@@ -4,7 +4,8 @@ A Christian-music song-guessing game. Each song starts at **0.1 seconds** of aud
 
 ## How it plays
 
-- **Three ways to play:** a 5-song run, **Endless** (songs keep coming and get harder; skipping costs one of 3 lives), and **Daily** (the same 5 songs for everyone).
+- **Four ways to play:** a 5-song run, **Endless** (songs keep coming and get harder; skipping costs one of 3 lives), **Daily** (the same 5 songs for everyone), and **Friends** (private multiplayer rooms).
+- **Multiplayer:** the host creates a room and shares a 5-letter code or invite link (`?room=CODE`). Up to 30 players hear the same song at the same time, 45 seconds per song, scored like solo. After each song everyone sees the answer, the round results and the leaderboard; the game ends with a podium, and the host can start another game with the same group. It runs peer-to-peer over WebRTC: the host's browser runs the room, PeerJS's free public broker introduces the players, and PeerJS's relay servers step in when networks block direct connections. No server or account is needed. To use your own broker, build with `VITE_PEER_HOST`, `VITE_PEER_PORT`, `VITE_PEER_PATH` and `VITE_PEER_SECURE`.
 - **Runs of 5 songs**, ordered from best-known to least-known (Easy → Legend), scored out of 50,000. There's no daily limit.
 - **Unlocking more:** drag the logarithmic scrubber, tap the 0.1s, 0.5s, 1s and 3s buttons, or press +1s. The current "worth" updates as you go.
 - **Scoring:** 10,000 points at 0.1s, falling steeply at first and reaching 3,000 at the full 30s (`clipWorth` in `src/lib/scoring.ts`). Each wrong guess costs 500, and the song keeps going. Skip reveals the answer and scores 0.

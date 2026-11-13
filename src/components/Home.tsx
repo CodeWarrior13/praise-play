@@ -13,6 +13,7 @@ type Props = {
   onStart: () => void
   onDaily: () => void
   onEndless: () => void
+  onMultiplayer: () => void
   onHelp: () => void
   daily: RunRecord | null
   dayNumber: number
@@ -25,7 +26,7 @@ const POPULARITY: { id: Popularity; label: string; hint: string }[] = [
   { id: 'deep', label: 'Deep cuts', hint: 'Album tracks for true fans' },
 ]
 
-export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless, onHelp, daily, dayNumber, stats }: Props) {
+export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless, onMultiplayer, onHelp, daily, dayNumber, stats }: Props) {
   // Returning players don't need the rules spelled out every time.
   const [showHelp] = useState(() => !loadSetting('seenHelp', false) && stats.runs === 0)
   const start = (fn: () => void) => () => { saveSetting('seenHelp', true); fn() }
@@ -88,6 +89,10 @@ export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless,
           </button>
           <button className="ghost big" onClick={start(onDaily)}>
             {daily ? <>Daily #{dayNumber} · <CountUp value={daily.total} /></> : <>Daily #{dayNumber}</>}
+          </button>
+          <button className="ghost big" onClick={start(onMultiplayer)}>
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M9 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm7.5 1a3 3 0 1 1 0-6 3 3 0 0 1 0 6ZM2 20c0-3.3 3.1-6 7-6s7 2.7 7 6H2Zm15.5 0c0-1.9-.7-3.6-1.9-4.9.6-.1 1.2-.1 1.9-.1 2.8 0 4.5 1.8 4.5 5h-4.5Z" /></svg>
+            Friends
           </button>
         </div>
         <p className="pool-count"><strong><CountUp value={pool.length} duration={500} /></strong> songs in the pool</p>

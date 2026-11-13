@@ -34,8 +34,8 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const CHRISTIAN_GENRE = /christian|gospel|praise|worship|inspirational|ccm|christmas|holiday/i
 const JUNK_VERSION = /\b(instrumental|karaoke|backing track|accompaniment|performance track|split track|remix|re-?mixed|sped up|slowed|8d audio|nightcore|lo-?fi|commentary|interview|medley|minus one|reprise|spontaneous|demo|voice memo|vocal track|piano version|cover)\b/i
 const FOREIGN_VERSION = /\b(spanish|español|espanol|portugu[eê]s|en español|french|korean|german|italian)\b/i
-const NOT_A_SONG = /^(intro|interlude|outro|prelude|skit|welcome|benediction)\b/i
-const VERSION_WORDS = /\b(live|feat\.?|ft\.?|featuring|with|version|edit|remaster(ed)?|radio|single|studio|acoustic|deluxe|bonus|mono|stereo|from|session|sessions|mix|recorded|anniversary|edition|reimagined|extended|unplugged|stripped|original|bonus track)\b/i
+const NOT_A_SONG = /^(intro|interlude|outro|prelude|skit|welcome|benediction)\b|[([](.*\b)?(interlude|skit|intro|outro)\b|^[^a-z0-9]*[([]/i
+const VERSION_WORDS = /\b(reloaded|revisited|redux|reworked|rework|re-?recorded|re-?imagined|alternate|anthem|choir|orchestral|10th|20th|25th|live|feat\.?|ft\.?|featuring|with|version|edit|remaster(ed)?|radio|single|studio|acoustic|deluxe|bonus|mono|stereo|from|session|sessions|mix|recorded|anniversary|edition|reimagined|extended|unplugged|stripped|original|bonus track)\b/i
 
 const CHRISTMAS = /christmas|silent night|holy night|joy to the world|hark the herald|come all ye faithful|go tell it on the mountain|little drummer boy|mary,? did you know|away in a manger|what child is this|angels we have heard|god rest ye|first no[eë]l|o come,? o come,? emmanuel|carol of the bells|o little town of bethlehem|it came upon the midnight|we three kings|feliz navidad|white christmas|noel\b/i
 const HYMNS = new Set([
@@ -189,6 +189,9 @@ function buildArtistSongs(artist, results, preferredId) {
     const existing = songs.get(key)
     if (existing) {
       if (year && (!existing.year || year < existing.year)) existing.year = year
+      // Prefer the plain original ("Oceans") over a labelled version ("Oceans [Reloaded]"),
+      // keeping the popularity rank the song first appeared at.
+      if (existing.track.trackName !== existing.title && r.trackName === title) existing.track = r
       continue
     }
     songs.set(key, { track: r, title, key, year })

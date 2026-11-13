@@ -62,13 +62,20 @@ const BAND_EDGES = [0, 0.025, 0.1, 0.25, 0.55, 1]
  * and draws one song from each, so every run starts easy and ends hard.
  * Never repeats an artist within a run when the pool allows it.
  */
-export function buildRun(pool: Song[], random: () => number = Math.random): Song[] {
+/** Position along the difficulty curve (0 = easiest, 1 = hardest) → share of the ranked pool. */
+function edgeAt(f: number): number {
+  const x = Math.min(1, Math.max(0, f)) * (BAND_EDGES.length - 1)
+  const i = Math.min(BAND_EDGES.length - 2, Math.floor(x))
+  return BAND_EDGES[i] + (BAND_EDGES[i + 1] - BAND_EDGES[i]) * (x - i)
+}
+
+export function buildRun(pool: Song[], random: () => number = Math.random, size: number = RUN_LENGTH): Song[] {
   const ranked = [...pool].sort((a, b) => b.popularity - a.popularity || a.trackId - b.trackId)
-  const length = Math.min(RUN_LENGTH, ranked.length)
+  const length = Math.min(size, ranked.length)
   const artistCount = new Set(pool.map((song) => song.artist)).size
   const picks: Song[] = []
   for (let band = 0; band < length; band++) {
-    const edges = length === BAND_EDGES.length - 1 ? BAND_EDGES : Array.from({ length: length + 1 }, (_, i) => i / length)
+    const edges = Array.from({ length: length + 1 }, (_, i) => edgeAt(i / length))
     const start = Math.min(Math.floor(edges[band] * ranked.length), ranked.length - 1)
     const end = Math.max(start + 1, Math.floor(edges[band + 1] * ranked.length))
     const slice = ranked.slice(start, end)

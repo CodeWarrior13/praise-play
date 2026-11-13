@@ -12,6 +12,7 @@ import { Summary } from './components/Summary'
 import { ThemePicker } from './components/ThemePicker'
 import { Backdrop } from './components/Fx'
 import { HelpDialog } from './components/HelpDialog'
+import { Multiplayer } from './components/Multiplayer'
 import { onShortcut, typingInField } from './lib/keys'
 import { saveSetting } from './lib/storage'
 
@@ -28,7 +29,7 @@ type Game = {
   lives: number
 }
 
-type Screen = { kind: 'home' } | { kind: 'play'; game: Game } | { kind: 'summary'; run: RunRecord; mode: Mode; daily: string | null }
+type Screen = { kind: 'home' } | { kind: 'multi'; code: string } | { kind: 'play'; game: Game } | { kind: 'summary'; run: RunRecord; mode: Mode; daily: string | null }
 
 const scored = (results: SongResult[]) => results.filter((r) => r.outcome !== 'unavailable')
 
@@ -36,7 +37,11 @@ export default function App() {
   const [catalog, setCatalog] = useState<Catalog | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [options, setOptions] = useState<RunOptions>(loadOptions)
-  const [screen, setScreen] = useState<Screen>({ kind: 'home' })
+  // Invite links look like ?room=ABCDE and open the multiplayer join screen.
+  const [screen, setScreen] = useState<Screen>(() => {
+    const code = new URLSearchParams(location.search).get('room')
+    return code ? { kind: 'multi', code } : { kind: 'home' }
+  })
   const [stats, setStats] = useState(loadStats)
   const [themeId, setThemeId] = useState(loadThemeId)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -180,8 +185,10 @@ export default function App() {
         )}
       </div>
     )
+  } else if (screen.kind === 'multi') {
+    body = <Multiplayer catalog={catalog} options={options} initialCode={screen.code} onExit={goHome} />
   } else if (screen.kind === 'home') {
-    body = <Home catalog={catalog} options={options} onOptions={changeOptions} onStart={startRun} onDaily={startDaily} onEndless={startEndless} onHelp={() => setHelpOpen(true)} daily={loadDaily(today)} dayNumber={dayNumber(today)} stats={stats} />
+    body = <Home catalog={catalog} options={options} onOptions={changeOptions} onStart={startRun} onDaily={startDaily} onEndless={startEndless} onMultiplayer={() => setScreen({ kind: 'multi', code: '' })} onHelp={() => setHelpOpen(true)} daily={loadDaily(today)} dayNumber={dayNumber(today)} stats={stats} />
   } else if (screen.kind === 'play') {
     const { game } = screen
     const index = game.results.length
@@ -222,7 +229,7 @@ export default function App() {
       <Backdrop />
       <div className="page">
         <header className="topbar">
-          <button className="brand" onClick={screen.kind === 'play' ? quit : goHome} aria-label="Praise Play home">
+          <button className="brand" onClick={screen.kind === 'play' ? quit : screen.kind === 'multi' ? undefined : goHome} aria-label="Praise Play home">
             <span className="brand-mark" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M9 18.5a3 3 0 1 1-2-2.83V5.5l12-2.5v12a3 3 0 1 1-2-2.83V7.6l-8 1.7v9.2Z" /></svg>
             </span>
