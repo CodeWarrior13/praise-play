@@ -84,6 +84,13 @@ export default async (request: Request) => {
     }
     if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
+    // Health check: exercises the same save path on a private key that no board shows.
+    if (new URL(request.url).searchParams.get('check') === '1') {
+      const probe: Entry = { id: crypto.randomUUID(), name: 'healthcheck', score: 1, named: 0, at: new Date().toISOString() }
+      const entries = await addTo('healthcheck', probe)
+      return json({ ok: entries.some((e) => e.id === probe.id) })
+    }
+
     const body = (await request.json().catch(() => null)) as { name?: unknown; results?: unknown } | null
     const name = cleanName(body?.name)
     if (!name) return json({ error: 'Pick a name between 2 and 16 characters.' }, 400)
