@@ -52,10 +52,10 @@ export function filterSongs(catalog: Catalog, options: RunOptions, ignore?: 'gen
 
 /**
  * Where each difficulty band starts, as a share of the ranked pool. Easy draws from
- * the top 4%, Legend from the bottom 40%, so song 1 is always a genuine hit even in
+ * the top 2.5%, Legend from the bottom 45%, so song 1 is always a genuine hit even in
  * a pool of thousands.
  */
-const BAND_EDGES = [0, 0.04, 0.12, 0.3, 0.6, 1]
+const BAND_EDGES = [0, 0.025, 0.1, 0.25, 0.55, 1]
 
 /**
  * Ranks the pool from best-known to least-known, splits it into difficulty bands

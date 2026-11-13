@@ -319,7 +319,7 @@ All Star United | rock | 4
 Five Iron Frenzy | rock | 4
 Smalltown Poets | rock,ccm | 4
 The O.C. Supertones | rock | 4
-The Waiting | rock,ccm | 3
+The Waiting | rock,ccm | 3 | | 5360261
 PFR | rock,ccm | 3
 Johnny Q. Public | rock | 3
 Big Tent Revival | rock,ccm | 3

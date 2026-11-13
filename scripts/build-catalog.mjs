@@ -87,8 +87,8 @@ function cleanTitle(title) {
 }
 
 function creditMatches(artistName, rosterName) {
-  const a = normName(artistName)
-  const n = normName(rosterName)
+  const a = normName(artistName).replace(/^the /, '')
+  const n = normName(rosterName).replace(/^the /, '')
   if (a === n) return true
   if (!a.startsWith(n)) return false
   return /^(\s*,|\s+and\s|\s+x\s|\s+feat|\s+ft\b|\s+with\s|\s*\()/.test(a.slice(n.length))
@@ -96,8 +96,17 @@ function creditMatches(artistName, rosterName) {
 
 /** Is `name` credited anywhere on the track (main artist or "feat." in the title)? */
 function creditedAnywhere(track, name) {
-  const n = normName(name)
+  const n = normName(name).replace(/^the /, '')
   return normName(track.artistName ?? '').includes(n) || normName(track.trackName ?? '').includes(n)
+}
+
+/** Spotify and Apple sometimes title a song slightly differently ("REST" vs "Rested"). */
+function titlesClose(a, b) {
+  if (a === b) return true
+  if (a.length >= 4 && b.length >= 4 && (a.startsWith(b) || b.startsWith(a)) && Math.abs(a.length - b.length) <= 3) return true
+  const wordsA = a.split(' ').sort().join(' ')
+  const wordsB = b.split(' ').sort().join(' ')
+  return wordsA === wordsB
 }
 
 const slug = (name, suffix = '') => join(cacheDir, `${normTitle(name).replace(/ /g, '-').slice(0, 80) || 'item'}${suffix}.json`)
@@ -252,8 +261,12 @@ async function main() {
     }
     const params = new URLSearchParams({ term: `${cleanTitle(song.title)} ${song.artists[0]}`, entity: 'song', limit: '25', country: 'US' })
     const { data } = await cachedGet(`https://itunes.apple.com/search?${params}`, slug(`${song.title} ${song.artists[0]}`, '.song'))
-    const candidates = (data.results ?? []).filter((r) => r.kind === 'song' && r.previewUrl && r.trackExplicitness !== 'explicit' && normTitle(cleanTitle(r.trackName)) === key)
-    const track = candidates.find((r) => song.artists.some((name) => creditedAnywhere(r, name))) ?? candidates.find((r) => creditedAnywhere(r, song.artists[0].split(' ')[0]))
+    const wantsVersion = JUNK_VERSION.test(song.title)
+    const usable = (data.results ?? []).filter((r) => r.kind === 'song' && r.previewUrl && r.trackExplicitness !== 'explicit' && (wantsVersion || !JUNK_VERSION.test(r.trackName)))
+    const credited = (r) => song.artists.some((name) => creditedAnywhere(r, name))
+    const exact = usable.filter((r) => normTitle(cleanTitle(r.trackName)) === key)
+    const track = exact.find(credited) ?? exact.find((r) => creditedAnywhere(r, song.artists[0].split(' ')[0]))
+      ?? usable.filter(credited).find((r) => titlesClose(normTitle(cleanTitle(r.trackName)), key))
     if (!track) { missing.push(`${song.title} — ${song.artists.join(', ')}`); continue }
     if (seenTracks.has(track.trackId)) {
       const entry = entries.find((e) => e.track.trackId === track.trackId)
