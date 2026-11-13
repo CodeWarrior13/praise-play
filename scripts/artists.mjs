@@ -3,6 +3,7 @@
  * Format per line:  Artist name | genre ids (comma-separated) | fame 1–10 | flags
  *   fame   how widely known the artist is; sets how "easy" their hits are.
  *   flags  m = one of your Spotify top artists, i = instrumental artist (keep piano/instrumental tracks)
+ *   apple id  optional 5th field: pins the exact Apple artist when the name is shared with other acts
  * Genre ids must exist in GENRES below.
  */
 export const GENRES = {
@@ -165,7 +166,7 @@ Swoope | hiphop,electronic | 3
 Manafest | hiphop,rock | 4
 Skillet | rock | 9
 Switchfoot | rock,indie | 7
-Red | rock,metal | 6
+Red | rock,metal | 6 | | 214135551
 Thousand Foot Krutch | rock | 6
 P.O.D. | rock,metal | 7
 Disciple | rock,metal | 4
@@ -264,7 +265,7 @@ Redimi2 | latin,hiphop | 5
 Su Presencia | latin | 4
 Hillsong en Español | latin | 4
 Lilly Goodman | latin | 4
-Funky | latin,hiphop | 4
+Funky | latin,hiphop | 4 | | 80960663
 Capital Kings | electronic | 3
 LZ7 | electronic,hiphop | 3
 `
@@ -273,8 +274,8 @@ export const artists = roster
   .trim()
   .split('\n')
   .map((line) => {
-    const [name, genres, fame, flags = ''] = line.split('|').map((part) => part.trim())
-    return { name, genres: genres.split(','), fame: Number(fame), mine: flags.includes('m'), instrumental: flags.includes('i') }
+    const [name, genres, fame, flags = '', appleId = ''] = line.split('|').map((part) => part.trim())
+    return { name, genres: genres.split(','), fame: Number(fame), mine: flags.includes('m'), instrumental: flags.includes('i'), appleId: appleId ? Number(appleId) : undefined }
   })
 
 for (const artist of artists) {

@@ -105,6 +105,10 @@ function fetchArtist(artist) {
  * Apple returns those in popularity order too.
  */
 async function fetchArtistById(artist) {
+  if (artist.appleId) {
+    const songs = await cachedGet(`https://itunes.apple.com/lookup?id=${artist.appleId}&entity=song&limit=200&country=US`, slug(artist, '.lookup'))
+    return { results: (songs.data.results ?? []).filter((r) => r.wrapperType === 'track'), cached: songs.cached }
+  }
   const params = new URLSearchParams({ term: artist.name, entity: 'musicArtist', limit: '25', country: 'US' })
   const found = await cachedGet(`https://itunes.apple.com/search?${params}`, slug(artist, '.artist'))
   const candidates = (found.data.results ?? []).filter((r) => normName(r.artistName) === normName(artist.name))
@@ -132,7 +136,7 @@ function buildArtistSongs(artist, results) {
   const [bestId] = [...byId].sort((a, b) => b[1].score - a[1].score || b[1].count - a[1].count)[0] ?? []
   const songs = new Map()
   for (const r of matching) {
-    if (r.artistId !== bestId && !CHRISTIAN_GENRE.test(r.primaryGenreName ?? '')) continue
+    if (artist.appleId ? r.artistId !== artist.appleId : r.artistId !== bestId && !CHRISTIAN_GENRE.test(r.primaryGenreName ?? '')) continue
     if (r.trackExplicitness === 'explicit') continue
     if (!artist.instrumental) {
       if (JUNK_VERSION.test(r.trackName) || NOT_A_SONG.test(r.trackName)) continue
@@ -168,7 +172,7 @@ async function main() {
     const { data, cached } = await fetchArtist(artist)
     lastWasNetwork = !cached
     let songs = buildArtistSongs(artist, data.results ?? [])
-    if (songs.length < 12) {
+    if (songs.length < 12 || artist.appleId) {
       if (lastWasNetwork) await sleep(DELAY_MS)
       const byId = await fetchArtistById(artist)
       lastWasNetwork = !byId.cached

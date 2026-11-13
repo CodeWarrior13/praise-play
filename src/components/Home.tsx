@@ -76,7 +76,7 @@ export function Home({ catalog, options, onOptions, onStart, onDaily, daily, day
             Play
           </button>
           <button className="ghost big" onClick={onDaily}>
-            {daily ? <>Day {dayNumber} · <CountUp value={daily.total} /></> : <>Today’s run · Day {dayNumber}</>}
+            {daily ? <>Daily #{dayNumber} · <CountUp value={daily.total} /></> : <>Daily #{dayNumber}</>}
           </button>
         </div>
         <p className="pool-count"><strong><CountUp value={pool.length} duration={500} /></strong> songs in the pool</p>

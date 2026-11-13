@@ -15,8 +15,8 @@ export type RunOptions = {
   popularity: Popularity
 }
 
-export const HIT_THRESHOLD = 40
-export const DEEP_THRESHOLD = 16
+export const HIT_THRESHOLD = 35
+export const DEEP_THRESHOLD = 12
 export const MAX_ARTISTS = 60
 
 export const defaultOptions: RunOptions = { genres: [], artists: [], yearFrom: null, yearTo: null, popularity: 'all' }
@@ -32,7 +32,12 @@ export function filterSongs(catalog: Catalog, options: RunOptions, ignore?: 'gen
   const yearTo = options.yearTo ?? Infinity
   const yearFiltered = options.yearFrom !== null || options.yearTo !== null
   const artists = new Set(options.artists)
+  const wantsChristmas = options.genres.includes('christmas')
+  const wantsInstrumental = options.genres.includes('instrumental')
   return catalog.songs.filter((song) => {
+    // Christmas and instrumental songs only appear when their genre is picked.
+    if (ignore !== 'genres' && !wantsChristmas && song.genres.includes('christmas')) return false
+    if (ignore !== 'genres' && !wantsInstrumental && song.genres.includes('instrumental')) return false
     if (ignore !== 'genres' && options.genres.length && !song.genres.some((genre) => options.genres.includes(genre))) return false
     if (ignore !== 'artists' && artists.size && !artists.has(song.artist)) return false
     if (yearFiltered && (!song.year || song.year < yearFrom || song.year > yearTo)) return false
@@ -41,7 +46,14 @@ export function filterSongs(catalog: Catalog, options: RunOptions, ignore?: 'gen
 }
 
 /**
- * Ranks the pool from best-known to least-known, splits it into RUN_LENGTH bands
+ * Where each difficulty band starts, as a share of the ranked pool. Easy draws from
+ * the top 4%, Legend from the bottom 40%, so song 1 is always a genuine hit even in
+ * a pool of thousands.
+ */
+const BAND_EDGES = [0, 0.04, 0.12, 0.3, 0.6, 1]
+
+/**
+ * Ranks the pool from best-known to least-known, splits it into difficulty bands
  * and draws one song from each, so every run starts easy and ends hard.
  * Never repeats an artist within a run when the pool allows it.
  */
@@ -51,8 +63,9 @@ export function buildRun(pool: Song[], random: () => number = Math.random): Song
   const artistCount = new Set(pool.map((song) => song.artist)).size
   const picks: Song[] = []
   for (let band = 0; band < length; band++) {
-    const start = Math.floor((band * ranked.length) / length)
-    const end = Math.floor(((band + 1) * ranked.length) / length)
+    const edges = length === BAND_EDGES.length - 1 ? BAND_EDGES : Array.from({ length: length + 1 }, (_, i) => i / length)
+    const start = Math.min(Math.floor(edges[band] * ranked.length), ranked.length - 1)
+    const end = Math.max(start + 1, Math.floor(edges[band + 1] * ranked.length))
     const slice = ranked.slice(start, end)
     const fresh = artistCount >= length ? slice.filter((song) => !picks.some((p) => p.artist === song.artist)) : slice
     const choices = (fresh.length ? fresh : slice).filter((song) => !picks.includes(song))
@@ -62,6 +75,5 @@ export function buildRun(pool: Song[], random: () => number = Math.random): Song
 }
 
 export function dailyRun(catalog: Catalog, dateKey: string): Song[] {
-  const pool = catalog.songs.filter((song) => !song.genres.includes('christmas') && !song.genres.includes('instrumental'))
-  return buildRun(pool, seededRandom(hashString(`praise-play:${dateKey}`)))
+  return buildRun(filterSongs(catalog, defaultOptions), seededRandom(hashString(`praise-play:${dateKey}`)))
 }
