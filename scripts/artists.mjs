@@ -2,6 +2,7 @@
  * The artist roster the catalog is built from.
  * Format per line:  Artist name | genre ids (comma-separated) | fame 1–10 | flags
  *   fame   how widely known the artist is; sets how "easy" their hits are.
+ *   genres "auto" = work out the genre from Apple's data
  *   flags  m = one of your Spotify top artists, i = instrumental artist (keep piano/instrumental tracks)
  *   apple id  optional 5th field: pins the exact Apple artist when the name is shared with other acts
  * Genre ids must exist in GENRES below.
@@ -268,16 +269,98 @@ Lilly Goodman | latin | 4
 Funky | latin,hiphop | 4 | | 80960663
 Capital Kings | electronic | 3
 LZ7 | electronic,hiphop | 3
+
+# From your Spotify playlists
+David Crowder Band | worship,folk | 6
+Hope Darst | worship | 4
+Tiffany Hudson | worship | 4
+Joe L Barnes | worship,gospel | 4
+The Belonging Co | worship | 4
+Life.Church Worship | worship | 4
+Ryan Ellis | worship | 4
+Abbie Gamboa | worship | 3
+Chris McClarney | worship | 3
+Community Music | worship | 3
+Consumed By Fire | worship | 3
+Gracie Binion | worship | 3
+Hannah McClure | worship | 3
+Here Be Lions | worship | 3
+Jamie MacDonald | worship | 3
+Jesus Image | worship | 3
+Jonathan David Helser | worship | 3
+JWLKRS Worship | worship | 3
+Martin Smith | worship | 3
+Megan Woods | worship | 3
+Melodie Malone | worship | 3
+ONE HOUSE | worship | 3
+Paul McClure | worship | 3
+planetboom | worship | 3
+The Church Will Sing | worship | 3
+The Worship Initiative | worship | 3
+2819 Worship | worship | 3
+Blake Wiggins | worship | 3
+The Afters | ccm | 4
+Jason Gray | ccm | 4
+Jonny Diaz | ccm | 4
+Josh Wilson | ccm | 4
+Mark Schultz | ccm | 4
+7eventh Time Down | rock,ccm | 4
+33Miles | ccm | 3
+Andrew Ripp | ccm | 3
+Carrollton | ccm,worship | 3
+Caylie Bryant | ccm | 3
+Charlie Peacock | ccm | 3
+Geoff Moore & The Distance | ccm,rock | 3
+Kenzie Walker | ccm | 3
+MIKESCHAIR | ccm | 3
+Terrian | ccm,rnb | 3
+bodie | ccm | 3
+All Star United | rock | 4
+Five Iron Frenzy | rock | 4
+Smalltown Poets | rock,ccm | 4
+The O.C. Supertones | rock | 4
+The Waiting | rock,ccm | 3
+PFR | rock,ccm | 3
+Johnny Q. Public | rock | 3
+Big Tent Revival | rock,ccm | 3
+Plankeye | rock | 3
+Gable Price and Friends | indie | 3
+NF | hiphop | 6
+Zauntee | hiphop | 4
+Lathan Warlick | hiphop | 3
+WHATUPRG | hiphop | 3
+Shonlock | hiphop | 3
+R-Swift | hiphop | 3
+808 BEEZY | hiphop | 3
+Alex Jean | hiphop | 3
+Not Klyde | auto | 3
+Dell Mac | auto | 3
+CBertis | auto | 3
+LOGE | auto | 3
+LOST & FOUND | auto | 3
+Chelsea Plank | auto | 3
+Henrik | auto | 3
+Elyssa Figueroa | auto | 3
+John Wilds | auto | 3
+Jonathan Stamper | auto | 3
+Christian Dbest | auto | 3
+Christopher Syncere | auto | 3
+Roosevelt Stewart | auto | 3
+Swaizy | auto | 3
+Matt Vollmar and the Great Romance | auto | 3
+Anike | auto | 3
+Arthur Chatman | auto | 3
 `
 
 export const artists = roster
   .trim()
   .split('\n')
+  .filter((line) => line.trim() && !line.startsWith('#'))
   .map((line) => {
     const [name, genres, fame, flags = '', appleId = ''] = line.split('|').map((part) => part.trim())
     return { name, genres: genres.split(','), fame: Number(fame), mine: flags.includes('m'), instrumental: flags.includes('i'), appleId: appleId ? Number(appleId) : undefined }
   })
 
 for (const artist of artists) {
-  for (const genre of artist.genres) if (!GENRES[genre]) throw new Error(`Unknown genre "${genre}" for ${artist.name}`)
+  for (const genre of artist.genres) if (genre !== 'auto' && !GENRES[genre]) throw new Error(`Unknown genre "${genre}" for ${artist.name}`)
 }

@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 /**
- * Builds public/catalog.json from the artist roster in scripts/artists.mjs.
+ * Builds public/catalog.json from the artist roster (scripts/artists.mjs) and the
+ * player's playlist songs (scripts/playlist-songs.json).
  *
- * For each artist it asks the iTunes Search API for up to 200 of their songs.
- * Apple returns these roughly in popularity order, which becomes each song's
- * popularity rank. Live/remix/instrumental duplicates are merged into one
- * entry per song title, and the earliest release year is kept.
+ * 1. For each roster artist, ask the iTunes Search API for up to 200 of their songs.
+ *    Apple returns them roughly in popularity order, which becomes each song's rank.
+ *    Live/remix/instrumental duplicates are merged into one entry per title.
+ * 2. Every playlist song is matched against that list, or looked up on its own
+ *    when missing, and flagged so the game can offer "your playlist songs".
+ * 3. Album covers are stored once per album and referenced by index.
  *
  *   npm run catalog            # uses cached responses when present
  *   npm run catalog -- --fresh # re-downloads everything
@@ -21,8 +24,10 @@ import { artists, GENRES } from './artists.mjs'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const cacheDir = join(root, 'scripts', '.cache')
 const outFile = join(root, 'public', 'catalog.json')
+const playlistFile = join(root, 'scripts', 'playlist-songs.json')
 const fresh = process.argv.includes('--fresh')
 const DELAY_MS = 3200 // Apple allows roughly 20 requests a minute.
+const PLAYLIST_MIN_POPULARITY = 30
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -32,8 +37,8 @@ const FOREIGN_VERSION = /\b(spanish|español|espanol|portugu[eê]s|en español|f
 const NOT_A_SONG = /^(intro|interlude|outro|prelude|skit|welcome|benediction)\b/i
 const VERSION_WORDS = /\b(live|feat\.?|ft\.?|featuring|with|version|edit|remaster(ed)?|radio|single|studio|acoustic|deluxe|bonus|mono|stereo|from|session|sessions|mix|recorded|anniversary|edition|reimagined|extended|unplugged|stripped|original|bonus track)\b/i
 
-const CHRISTMAS = /christmas|silent night|holy night|joy to the world|hark the herald|come all ye faithful|go tell it on the mountain|little drummer boy|mary,? did you know|away in a manger|what child is this|angels we have heard|god rest ye|first no[eë]l|o come,? o come,? emmanuel|emmanuel \(christmas|carol of the bells|o little town of bethlehem|it came upon the midnight|we three kings|feliz navidad|white christmas|noel\b/i
-const HYMNS = [
+const CHRISTMAS = /christmas|silent night|holy night|joy to the world|hark the herald|come all ye faithful|go tell it on the mountain|little drummer boy|mary,? did you know|away in a manger|what child is this|angels we have heard|god rest ye|first no[eë]l|o come,? o come,? emmanuel|carol of the bells|o little town of bethlehem|it came upon the midnight|we three kings|feliz navidad|white christmas|noel\b/i
+const HYMNS = new Set([
   'amazing grace', 'how great thou art', 'it is well', 'it is well with my soul', 'great is thy faithfulness', 'holy holy holy',
   'be thou my vision', 'come thou fount', 'come thou fount of every blessing', 'nothing but the blood', 'the old rugged cross',
   'blessed assurance', 'crown him with many crowns', 'in christ alone', 'before the throne of god above', 'jesus paid it all',
@@ -41,12 +46,29 @@ const HYMNS = [
   'abide with me', 'when i survey the wondrous cross', 'all hail the power of jesus name', 'just as i am', 'jesus loves me',
   'softly and tenderly', 'down to the river to pray', 'christ the lord is risen today', 'his eye is on the sparrow',
   'victory in jesus', 'leaning on the everlasting arms', 'nearer my god to thee', 'be still my soul', 'how firm a foundation',
-  'it is well with my soul', 'there is power in the blood', 'standing on the promises', 'i surrender all', 'to god be the glory',
+  'there is power in the blood', 'standing on the promises', 'i surrender all', 'to god be the glory',
   'and can it be', 'o for a thousand tongues', 'all creatures of our god and king', 'praise to the lord the almighty',
   'this is my fathers world', 'the solid rock', 'my hope is built', 'when the roll is called up yonder', 'shall we gather at the river',
   'i need thee every hour', 'are you washed in the blood', 'were you there', 'sweet hour of prayer', 'how sweet the name of jesus sounds',
   'man of sorrows', 'living he loved me', 'his mercy is more', 'o praise the name', 'the love of god',
-]
+])
+
+/** Apple's genre names → our genre ids, for artists marked "auto" and one-off playlist songs. */
+function genresFromApple(names, artistName = '') {
+  const counts = {}
+  for (const name of names) {
+    const n = name.toLowerCase()
+    const id = /gospel/.test(n) ? 'gospel' : /rap|hip-hop|hip hop/.test(n) ? 'hiphop' : /metal|hard rock/.test(n) ? 'metal' : /rock|punk/.test(n) ? 'rock'
+      : /latin|latino|cristiana/.test(n) ? 'latin' : /country/.test(n) ? 'country' : /folk|singer|songwriter|americana/.test(n) ? 'folk'
+      : /r&b|soul/.test(n) ? 'rnb' : /electronic|dance|edm|house/.test(n) ? 'electronic' : /alternative|indie/.test(n) ? 'indie'
+      : /worship|praise/.test(n) ? 'worship' : 'ccm'
+    counts[id] = (counts[id] ?? 0) + 1
+  }
+  const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([id]) => id)
+  const genres = ranked.slice(0, 1)
+  if (/worship/i.test(artistName) && !genres.includes('worship')) genres.unshift('worship')
+  return genres.length ? genres : ['ccm']
+}
 
 function normName(text) {
   return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[&+]/g, ' and ').replace(/\s+/g, ' ').trim()
@@ -59,9 +81,7 @@ function normTitle(text) {
 /** "Graves Into Gardens (feat. Brandon Lake) [Live]" → "Graves Into Gardens" */
 function cleanTitle(title) {
   let clean = title
-  // Remove bracketed parts that only describe the version.
   for (let i = 0; i < 3; i++) clean = clean.replace(/\s*[([]([^()[\]]*)[)\]]/g, (match, inner) => (VERSION_WORDS.test(inner) ? '' : match))
-  // "Song - Live at ..." / "Song - Radio Version"
   clean = clean.replace(/\s+[-–—]\s+(.*)$/, (match, tail) => (VERSION_WORDS.test(tail) ? '' : match))
   return clean.replace(/\s+/g, ' ').trim()
 }
@@ -74,11 +94,21 @@ function creditMatches(artistName, rosterName) {
   return /^(\s*,|\s+and\s|\s+x\s|\s+feat|\s+ft\b|\s+with\s|\s*\()/.test(a.slice(n.length))
 }
 
-const slug = (artist, suffix = '') => join(cacheDir, `${normTitle(artist.name).replace(/ /g, '-') || 'artist'}${suffix}.json`)
+/** Is `name` credited anywhere on the track (main artist or "feat." in the title)? */
+function creditedAnywhere(track, name) {
+  const n = normName(name)
+  return normName(track.artistName ?? '').includes(n) || normName(track.trackName ?? '').includes(n)
+}
+
+const slug = (name, suffix = '') => join(cacheDir, `${normTitle(name).replace(/ /g, '-').slice(0, 80) || 'item'}${suffix}.json`)
+let lastRequest = 0
 
 async function cachedGet(url, cacheFile) {
   if (!fresh && existsSync(cacheFile)) return { data: JSON.parse(await readFile(cacheFile, 'utf8')), cached: true }
   for (let attempt = 0; attempt < 5; attempt++) {
+    const wait = lastRequest + DELAY_MS - Date.now()
+    if (wait > 0) await sleep(wait)
+    lastRequest = Date.now()
     try {
       const response = await fetch(url)
       if (response.status === 403 || response.status === 429 || response.status >= 500) throw new Error(`HTTP ${response.status}`)
@@ -86,9 +116,9 @@ async function cachedGet(url, cacheFile) {
       await writeFile(cacheFile, JSON.stringify(data))
       return { data, cached: false }
     } catch (error) {
-      const wait = 15_000 * (attempt + 1)
-      console.warn(`  ${url}: ${error.message}; retrying in ${wait / 1000}s`)
-      await sleep(wait)
+      const backoff = 15_000 * (attempt + 1)
+      console.warn(`  ${url}: ${error.message}; retrying in ${backoff / 1000}s`)
+      await sleep(backoff)
     }
   }
   throw new Error(`Could not fetch ${url}`)
@@ -96,36 +126,40 @@ async function cachedGet(url, cacheFile) {
 
 function fetchArtist(artist) {
   const params = new URLSearchParams({ term: artist.name, entity: 'song', attribute: 'artistTerm', limit: '200', country: 'US' })
-  return cachedGet(`https://itunes.apple.com/search?${params}`, slug(artist))
+  return cachedGet(`https://itunes.apple.com/search?${params}`, slug(artist.name))
 }
 
-/**
- * For generic names ("Passion", "Red") the keyword search is swamped by other
- * artists. Find the artist's own Apple ID, then list their songs directly;
- * Apple returns those in popularity order too.
- */
-async function fetchArtistById(artist) {
-  if (artist.appleId) {
-    const songs = await cachedGet(`https://itunes.apple.com/lookup?id=${artist.appleId}&entity=song&limit=200&country=US`, slug(artist, '.lookup'))
-    return { results: (songs.data.results ?? []).filter((r) => r.wrapperType === 'track'), cached: songs.cached }
+/** For shared names ("Passion", "Red"), list songs by the artist's own Apple ID. */
+async function fetchArtistById(artist, knownId) {
+  let id = artist.appleId ?? knownId
+  if (!id) {
+    const params = new URLSearchParams({ term: artist.name, entity: 'musicArtist', limit: '25', country: 'US' })
+    const found = await cachedGet(`https://itunes.apple.com/search?${params}`, slug(artist.name, '.artist'))
+    const candidates = (found.data.results ?? []).filter((r) => normName(r.artistName) === normName(artist.name))
+    id = (candidates.find((r) => CHRISTIAN_GENRE.test(r.primaryGenreName ?? '')) ?? (artist.instrumental || artist.genres.includes('auto') ? candidates[0] : undefined))?.artistId
   }
-  const params = new URLSearchParams({ term: artist.name, entity: 'musicArtist', limit: '25', country: 'US' })
-  const found = await cachedGet(`https://itunes.apple.com/search?${params}`, slug(artist, '.artist'))
-  const candidates = (found.data.results ?? []).filter((r) => normName(r.artistName) === normName(artist.name))
-  const best = candidates.find((r) => CHRISTIAN_GENRE.test(r.primaryGenreName ?? '')) ?? (artist.instrumental ? candidates[0] : undefined)
-  if (!best) return { results: [], cached: found.cached, networkCalls: found.cached ? 0 : 1 }
-  if (!found.cached) await sleep(DELAY_MS)
-  const songs = await cachedGet(`https://itunes.apple.com/lookup?id=${best.artistId}&entity=song&limit=200&country=US`, slug(artist, '.lookup'))
-  return { results: (songs.data.results ?? []).filter((r) => r.wrapperType === 'track'), cached: found.cached && songs.cached }
+  if (!id) return []
+  const songs = await cachedGet(`https://itunes.apple.com/lookup?id=${id}&entity=song&limit=200&country=US`, slug(artist.name, `.lookup-${id}`))
+  return (songs.data.results ?? []).filter((r) => r.wrapperType === 'track')
 }
 
 function songCap(fame) {
   return fame >= 8 ? 90 : fame >= 6 ? 60 : fame >= 4 ? 40 : 28
 }
 
-function buildArtistSongs(artist, results) {
+function keepTrack(track, artist) {
+  if (track.kind !== 'song' || !track.previewUrl) return false
+  if (track.trackExplicitness === 'explicit') return false
+  if (!artist.instrumental) {
+    if (JUNK_VERSION.test(track.trackName) || NOT_A_SONG.test(track.trackName)) return false
+    if ((track.trackTimeMillis ?? 0) < 75_000) return false
+  }
+  if (!artist.genres.includes('latin') && FOREIGN_VERSION.test(track.trackName)) return false
+  return true
+}
+
+function buildArtistSongs(artist, results, preferredId) {
   const matching = results.filter((r) => r.kind === 'song' && r.previewUrl && creditMatches(r.artistName, artist.name))
-  // Several artists can share a name; keep the one with the most Christian-genre songs.
   const byId = new Map()
   for (const r of matching) {
     const entry = byId.get(r.artistId) ?? { score: 0, count: 0 }
@@ -133,16 +167,12 @@ function buildArtistSongs(artist, results) {
     if (CHRISTIAN_GENRE.test(r.primaryGenreName ?? '')) entry.score += 1
     byId.set(r.artistId, entry)
   }
-  const [bestId] = [...byId].sort((a, b) => b[1].score - a[1].score || b[1].count - a[1].count)[0] ?? []
+  const pinned = artist.appleId ?? preferredId
+  const [bestId] = pinned ? [pinned] : [...byId].sort((a, b) => b[1].score - a[1].score || b[1].count - a[1].count)[0] ?? []
   const songs = new Map()
   for (const r of matching) {
-    if (artist.appleId ? r.artistId !== artist.appleId : r.artistId !== bestId && !CHRISTIAN_GENRE.test(r.primaryGenreName ?? '')) continue
-    if (r.trackExplicitness === 'explicit') continue
-    if (!artist.instrumental) {
-      if (JUNK_VERSION.test(r.trackName) || NOT_A_SONG.test(r.trackName)) continue
-      if ((r.trackTimeMillis ?? 0) < 75_000) continue
-    }
-    if (!artist.genres.includes('latin') && FOREIGN_VERSION.test(r.trackName)) continue
+    if (pinned ? r.artistId !== pinned : r.artistId !== bestId && !CHRISTIAN_GENRE.test(r.primaryGenreName ?? '')) continue
+    if (!keepTrack(r, artist)) continue
     const title = cleanTitle(r.trackName)
     const key = normTitle(title)
     if (!key) continue
@@ -152,9 +182,7 @@ function buildArtistSongs(artist, results) {
       if (year && (!existing.year || year < existing.year)) existing.year = year
       continue
     }
-    const christmas = CHRISTMAS.test(title) || CHRISTMAS.test(r.collectionName ?? '')
-    const hymn = HYMNS.includes(key)
-    songs.set(key, { trackId: r.trackId, title, year, christmas, hymn })
+    songs.set(key, { track: r, title, key, year })
   }
   return [...songs.values()].slice(0, songCap(artist.fame))
 }
@@ -162,46 +190,121 @@ function buildArtistSongs(artist, results) {
 async function main() {
   await mkdir(cacheDir, { recursive: true })
   await mkdir(dirname(outFile), { recursive: true })
-  const catalogArtists = []
-  const catalogSongs = []
-  const seenTracks = new Set()
-  let lastWasNetwork = false
+  const playlist = JSON.parse(await readFile(playlistFile, 'utf8')).songs
+  const playlistArtists = new Set(playlist.flatMap((song) => song.artists.map(normName)))
 
-  for (const [index, artist] of artists.entries()) {
-    if (lastWasNetwork) await sleep(DELAY_MS)
-    const { data, cached } = await fetchArtist(artist)
-    lastWasNetwork = !cached
-    let songs = buildArtistSongs(artist, data.results ?? [])
-    if (songs.length < 12 || artist.appleId) {
-      if (lastWasNetwork) await sleep(DELAY_MS)
-      const byId = await fetchArtistById(artist)
-      lastWasNetwork = !byId.cached
-      const merged = buildArtistSongs(artist, [...byId.results, ...(data.results ?? [])])
-      if (merged.length > songs.length) songs = merged
-    }
-    const artistIndex = catalogArtists.length
-    catalogArtists.push({ name: artist.name, genres: artist.genres, mine: artist.mine || undefined })
-    songs.forEach((song, rank) => {
-      if (seenTracks.has(song.trackId)) return
-      seenTracks.add(song.trackId)
-      // Famous artist + early rank = easy. Falls off smoothly down the artist's list.
-      const popularity = Math.max(1, Math.round((artist.fame * 10) / (1 + rank / 5)))
-      const genres = song.christmas ? ['christmas'] : song.hymn ? [...new Set([...artist.genres, 'hymns'])] : artist.genres
-      const genreField = genres.join(',') === artist.genres.join(',') ? 0 : genres
-      catalogSongs.push([song.trackId, song.title, artistIndex, song.year ?? 0, popularity, genreField])
-    })
-    console.log(`${String(index + 1).padStart(3)}/${artists.length} ${artist.name}: ${songs.length} songs${cached ? ' (cached)' : ''}`)
+  const catalogArtists = []
+  const artistIndexByName = new Map()
+  const entries = [] // { track, title, key, year, artistIndex, popularity, genres, playlist }
+  const seenTracks = new Set()
+  const appleGenresByArtist = new Map()
+
+  function addArtist(name, genres, mine) {
+    const key = normName(name)
+    if (artistIndexByName.has(key)) return artistIndexByName.get(key)
+    const index = catalogArtists.length
+    catalogArtists.push({ name, genres, mine: mine || undefined })
+    artistIndexByName.set(key, index)
+    return index
   }
+
+  // Pass 1: every roster artist's catalog.
+  for (const [i, artist] of artists.entries()) {
+    const { data } = await fetchArtist(artist)
+    let results = data.results ?? []
+    let songs = buildArtistSongs(artist, results)
+    if (songs.length < 12 || artist.appleId) {
+      const byId = await fetchArtistById(artist)
+      const merged = buildArtistSongs(artist, [...byId, ...results])
+      if (merged.length > songs.length) { songs = merged; results = [...byId, ...results] }
+    }
+    const genres = artist.genres.includes('auto') ? genresFromApple(songs.map((s) => s.track.primaryGenreName ?? ''), artist.name) : artist.genres
+    const mine = artist.mine || playlistArtists.has(normName(artist.name))
+    const artistIndex = addArtist(artist.name, genres, mine)
+    appleGenresByArtist.set(artistIndex, genres)
+    songs.forEach((song, rank) => {
+      if (seenTracks.has(song.track.trackId)) return
+      seenTracks.add(song.track.trackId)
+      const popularity = Math.max(1, Math.round((artist.fame * 10) / (1 + rank / 5)))
+      entries.push({ ...song, artistIndex, popularity, genres, playlist: false })
+    })
+    console.log(`${String(i + 1).padStart(3)}/${artists.length} ${artist.name}: ${songs.length} songs${artist.genres.includes('auto') ? ` [${genres}]` : ''}`)
+  }
+
+  // Pass 2: make sure every playlist song is in, and flag it.
+  const byKey = new Map()
+  for (const entry of entries) {
+    const list = byKey.get(entry.key) ?? []
+    list.push(entry)
+    byKey.set(entry.key, list)
+  }
+  let matched = 0
+  let added = 0
+  const missing = []
+  for (const song of playlist) {
+    const key = normTitle(cleanTitle(song.title))
+    const local = (byKey.get(key) ?? []).find((entry) => song.artists.some((name) => creditedAnywhere(entry.track, name) || normName(catalogArtists[entry.artistIndex].name) === normName(name)))
+    if (local) {
+      local.playlist = true
+      local.popularity = Math.max(local.popularity, PLAYLIST_MIN_POPULARITY)
+      matched += 1
+      continue
+    }
+    const params = new URLSearchParams({ term: `${cleanTitle(song.title)} ${song.artists[0]}`, entity: 'song', limit: '25', country: 'US' })
+    const { data } = await cachedGet(`https://itunes.apple.com/search?${params}`, slug(`${song.title} ${song.artists[0]}`, '.song'))
+    const candidates = (data.results ?? []).filter((r) => r.kind === 'song' && r.previewUrl && r.trackExplicitness !== 'explicit' && normTitle(cleanTitle(r.trackName)) === key)
+    const track = candidates.find((r) => song.artists.some((name) => creditedAnywhere(r, name))) ?? candidates.find((r) => creditedAnywhere(r, song.artists[0].split(' ')[0]))
+    if (!track) { missing.push(`${song.title} — ${song.artists.join(', ')}`); continue }
+    if (seenTracks.has(track.trackId)) {
+      const entry = entries.find((e) => e.track.trackId === track.trackId)
+      if (entry) { entry.playlist = true; entry.popularity = Math.max(entry.popularity, PLAYLIST_MIN_POPULARITY) }
+      matched += 1
+      continue
+    }
+    seenTracks.add(track.trackId)
+    const primary = song.artists[0]
+    const existing = artistIndexByName.get(normName(primary))
+    const genres = existing !== undefined ? catalogArtists[existing].genres : genresFromApple([track.primaryGenreName ?? ''], primary)
+    const artistIndex = existing ?? addArtist(primary, genres, true)
+    const title = cleanTitle(track.trackName)
+    const christmas = CHRISTMAS.test(title) || CHRISTMAS.test(track.collectionName ?? '')
+    entries.push({ track, title, key: normTitle(title), year: Number(track.releaseDate?.slice(0, 4)) || undefined, artistIndex, popularity: PLAYLIST_MIN_POPULARITY, genres: christmas ? ['christmas'] : genres, playlist: true })
+    added += 1
+  }
+
+  // Album covers, stored once per album: "1|Music221/v4/.../196873750729.jpg"
+  const arts = []
+  const artIndex = new Map()
+  function artFor(track) {
+    const match = (track.artworkUrl100 ?? '').match(/^https:\/\/is(\d)-ssl\.mzstatic\.com\/image\/thumb\/(.+)\/100x100bb\.(jpg|png|webp)$/)
+    if (!match) return -1
+    const key = `${match[1]}|${match[2]}`
+    if (!artIndex.has(key)) { artIndex.set(key, arts.length); arts.push(key) }
+    return artIndex.get(key)
+  }
+
+  const catalogSongs = entries.map((entry) => {
+    const christmas = CHRISTMAS.test(entry.title) || CHRISTMAS.test(entry.track.collectionName ?? '')
+    const hymn = HYMNS.has(entry.key)
+    const base = catalogArtists[entry.artistIndex].genres
+    const genres = christmas ? ['christmas'] : hymn ? [...new Set([...entry.genres, 'hymns'])] : entry.genres
+    const genreField = genres.join(',') === base.join(',') ? 0 : genres
+    return [entry.track.trackId, entry.title, entry.artistIndex, entry.year ?? 0, entry.popularity, genreField, artFor(entry.track), entry.playlist ? 1 : 0]
+  })
 
   const catalog = {
     builtAt: new Date().toISOString(),
     genres: GENRES,
     artists: catalogArtists,
-    /** [itunesTrackId, title, artistIndex, year, popularity 1–100, genres (0 = same as artist)] */
+    /** Album art paths: "<server digit>|<path>" → https://is<digit>-ssl.mzstatic.com/image/thumb/<path>/<size>x<size>bb.jpg */
+    arts,
+    /** [itunesTrackId, title, artistIndex, year, popularity 1–100, genres (0 = artist's), art index (-1 = none), 1 = from your playlists] */
     songs: catalogSongs,
   }
   await writeFile(outFile, JSON.stringify(catalog))
-  console.log(`\nWrote ${catalogSongs.length} songs by ${catalogArtists.length} artists to public/catalog.json`)
+  console.log(`\nPlaylist songs: ${matched} already in catalog, ${added} added, ${missing.length} not found on Apple Music`)
+  if (missing.length) console.log(`  Not found:\n  ${missing.join('\n  ')}`)
+  console.log(`Wrote ${catalogSongs.length} songs by ${catalogArtists.length} artists (${arts.length} album covers) to public/catalog.json`)
   const empty = catalogArtists.filter((a, i) => !catalogSongs.some((s) => s[2] === i)).map((a) => a.name)
   if (empty.length) console.log(`No songs found for: ${empty.join(', ')}`)
 }

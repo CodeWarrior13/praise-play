@@ -10,8 +10,12 @@ export type Song = {
   year?: number
   /** 1–100: how widely known the song is (artist fame × rank in their catalog). */
   popularity: number
-  /** By one of the player's Spotify top artists. */
+  /** By an artist from the player's Spotify playlists. */
   mine: boolean
+  /** The song itself is on one of the player's playlists. */
+  playlist: boolean
+  /** Album cover path, or undefined if Apple had none. Use artUrl() to build a URL. */
+  art?: string
   /** Pre-normalized "title artist" for fast searching. */
   search: string
 }
@@ -30,7 +34,8 @@ export type Catalog = {
 type RawCatalog = {
   genres: Record<string, string>
   artists: { name: string; genres: string[]; mine?: boolean }[]
-  songs: [number, string, number, number, number, 0 | string[]][]
+  arts?: string[]
+  songs: [number, string, number, number, number, 0 | string[], number?, number?][]
 }
 
 let pending: Promise<Catalog> | null = null
@@ -51,7 +56,7 @@ export function loadCatalog(): Promise<Catalog> {
 
 function parse(raw: RawCatalog): Catalog {
   const counts = new Array(raw.artists.length).fill(0)
-  const songs: Song[] = raw.songs.map(([trackId, title, artistIndex, year, popularity, genres]) => {
+  const songs: Song[] = raw.songs.map(([trackId, title, artistIndex, year, popularity, genres, art = -1, flags = 0]) => {
     const artist = raw.artists[artistIndex]
     counts[artistIndex] += 1
     return {
@@ -63,6 +68,8 @@ function parse(raw: RawCatalog): Catalog {
       year: year || undefined,
       popularity,
       mine: Boolean(artist.mine),
+      playlist: flags === 1,
+      art: art >= 0 ? raw.arts?.[art] : undefined,
       search: normalize(`${title} ${artist.name}`),
     }
   })
@@ -81,4 +88,11 @@ function parse(raw: RawCatalog): Catalog {
     yearMin: Math.min(...years),
     yearMax: Math.max(...years),
   }
+}
+
+/** Album cover URL at the given pixel size (Apple renders any size on request). */
+export function artUrl(song: Song, size = 300): string | undefined {
+  if (!song.art) return undefined
+  const [server, path] = song.art.split('|')
+  return `https://is${server}-ssl.mzstatic.com/image/thumb/${path}/${size}x${size}bb.jpg`
 }

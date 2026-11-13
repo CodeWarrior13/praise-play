@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { MAX_POINTS, formatPoints, formatSeconds } from '../lib/scoring'
-import type { RunRecord } from '../lib/storage'
+import type { RunRecord, Stats } from '../lib/storage'
+import type { Mode } from '../App'
 import { msUntilTomorrow } from '../lib/daily'
 import { Confetti, CountUp } from './Fx'
 
@@ -19,17 +20,21 @@ function verdict(ratio: number): string {
   return 'Tough set. Try another run!'
 }
 
-type Props = { run: RunRecord; daily: number | null; onAgain: () => void; onHome: () => void }
+type Props = { run: RunRecord; mode: Mode; daily: number | null; stats: Stats; onAgain: () => void; onHome: () => void }
 
-export function Summary({ run, daily, onAgain, onHome }: Props) {
+export function Summary({ run, mode, daily, stats, onAgain, onHome }: Props) {
   const [copied, setCopied] = useState(false)
-  const max = MAX_POINTS * run.results.length
+  const endless = mode === 'endless'
+  const named = run.results.filter((r) => r.outcome === 'named').length
+  const max = MAX_POINTS * Math.max(1, run.results.length)
   const ratio = run.total / max
+  const newBest = endless ? run.total > 0 && run.total >= (stats.bestEndless ?? 0) : run.total > 0 && run.total >= stats.best
 
   async function share() {
     const line = run.results.map((r) => `${square(r.points, r.outcome === 'skipped')} ${r.outcome === 'skipped' ? 'skip' : formatSeconds(r.seconds)}`).join('\n')
-    const head = daily ? `Praise Play · Day ${daily}` : 'Praise Play'
-    const text = `${head}\n${formatPoints(run.total)} / ${formatPoints(max)}\n${line}\n${location.origin}${location.pathname}`
+    const head = daily ? `Praise Play · Day ${daily}` : endless ? 'Praise Play · Endless' : 'Praise Play'
+    const score = endless ? `${formatPoints(run.total)} pts · ${named} songs named` : `${formatPoints(run.total)} / ${formatPoints(max)}`
+    const text = `${head}\n${score}\n${endless ? line.split('\n').map((l) => l.split(' ')[0]).join('') : line}\n${location.origin}${location.pathname}`
     try {
       if (navigator.share && matchMedia('(pointer: coarse)').matches) await navigator.share({ text })
       else { await navigator.clipboard.writeText(text); setCopied(true); window.setTimeout(() => setCopied(false), 2000) }
@@ -40,29 +45,36 @@ export function Summary({ run, daily, onAgain, onHome }: Props) {
 
   return (
     <section className="card summary enter">
-      {ratio >= 0.5 && <Confetti count={60} />}
-      <p className="eyebrow">{daily ? `Day ${daily} complete` : 'Run complete'}</p>
+      {(endless ? newBest : ratio >= 0.5) && <Confetti count={60} />}
+      <p className="eyebrow">{daily ? `Day ${daily} complete` : endless ? 'Game over' : 'Run complete'}</p>
       <div className="total">
         <strong className="gradient-text"><CountUp value={run.total} duration={1400} /></strong>
-        <span>/ {formatPoints(max)}</span>
+        <span>{endless ? 'pts' : `/ ${formatPoints(max)}`}</span>
       </div>
-      <div className="meter" aria-hidden="true"><span style={{ width: `${ratio * 100}%` }} /></div>
-      <p className="summary-verdict">{verdict(ratio)}</p>
-      <ol className="result-list">
+      {newBest && <p className="best-badge">★ New personal best</p>}
+      {endless ? (
+        <p className="summary-verdict">{named} song{named === 1 ? '' : 's'} named · best {formatPoints(stats.bestEndless ?? run.total)} pts · {stats.bestEndlessSongs ?? named} songs</p>
+      ) : (
+        <>
+          <div className="meter" aria-hidden="true"><span style={{ width: `${ratio * 100}%` }} /></div>
+          <p className="summary-verdict">{verdict(ratio)}</p>
+        </>
+      )}
+      <ol className={`result-list${run.results.length > 8 ? ' scroll' : ''}`}>
         {run.results.map((result, i) => (
-          <li key={i} style={{ animationDelay: `${300 + i * 90}ms` }}>
+          <li key={i} style={{ animationDelay: `${300 + Math.min(i, 12) * 70}ms` }}>
             <span className="sq">{square(result.points, result.outcome === 'skipped')}</span>
             <span className="result-song"><strong>{result.title}</strong><span>{result.artist}</span></span>
             <span className="result-pts">
               <strong>{result.outcome === 'skipped' ? '—' : formatPoints(result.points)}</strong>
-              <span>{result.outcome === 'skipped' ? 'skipped' : `${formatSeconds(result.seconds)}${result.wrongGuesses ? ` · ${result.wrongGuesses}✕` : ''}`}</span>
+              <span>{result.outcome === 'skipped' ? 'skipped' : `${formatSeconds(result.seconds)} heard${result.elapsed !== undefined ? ` · ${result.elapsed}s` : ''}${result.wrongGuesses ? ` · ${result.wrongGuesses}✕` : ''}`}</span>
             </span>
           </li>
         ))}
       </ol>
       <div className="summary-actions">
         <button className="primary shine" onClick={share}>{copied ? 'Copied!' : 'Share score'}</button>
-        <button className="ghost" onClick={onAgain}>{daily ? 'Play a free run' : 'Play again'}</button>
+        <button className="ghost" onClick={onAgain}>{daily ? 'Play a free run' : endless ? 'Play endless again' : 'Play again'}</button>
       </div>
       <button className="text-button" onClick={onHome}>Change run options</button>
       {daily && <Countdown />}

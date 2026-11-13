@@ -4,11 +4,13 @@ A Christian-music song-guessing game. Each song starts at **0.1 seconds** of aud
 
 ## How it plays
 
+- **Three ways to play:** a 5-song run, **Endless** (songs keep coming and get harder; skipping costs one of 3 lives), and **Daily** (the same 5 songs for everyone).
 - **Runs of 5 songs**, ordered from best-known to least-known (Easy → Legend), scored out of 50,000. There's no daily limit.
 - **Unlocking more:** drag the logarithmic scrubber, tap the 0.1s, 0.5s, 1s and 3s buttons, or press +1s. The current "worth" updates as you go.
 - **Scoring:** 10,000 points at 0.1s, falling steeply at first and reaching 3,000 at the full 30s (`clipWorth` in `src/lib/scoring.ts`). Each wrong guess costs 500, and the song keeps going. Skip reveals the answer and scores 0.
 - **Run options:** Hits / Everything / Deep cuts, any mix of 16 genres, up to 60 artists (or one tap for your Spotify top artists), and an era range with decade shortcuts. A narrow pool is still ranked from easy to hard.
-- **Today's run:** the same 5 songs for everyone each day, so you can compare scores. Each day can be played once.
+- **Guessing:** search by song or artist. Results show album covers, and typing an artist's name lists their songs. Start typing anywhere to search; `Space` plays and `→` adds a second on desktop.
+- **After each song:** the cover slides out of a spinning record, the song keeps playing, and you see how much you heard, how long you took, and your wrong guesses. If a preview is ever missing, the game swaps in another song of the same difficulty, with no penalty.
 - **End of run:** a per-song breakdown, a shareable emoji summary, and your best/average/fastest stats (stored on the device).
 
 ## Run locally
@@ -24,15 +26,22 @@ npm run dev
 
 Songs live in `public/catalog.json`, which is generated, not hand-written.
 
-1. **The roster:** `scripts/artists.mjs` lists about 240 Christian artists, each with genre tags and a fame score (1–10). Artists marked `m` are the player's Spotify top artists. They get a quick "your artists" button in Run options.
+1. **The roster:** `scripts/artists.mjs` lists about 320 Christian artists, each with genre tags (or `auto`) and a fame score (1–10).
+1. **Your playlists:** `scripts/playlist-songs.json` holds the ~700 songs from your Spotify playlists. Every one is matched or looked up on Apple Music and flagged, so Run options can limit a game to "Your playlists" or "Your artists".
 2. **The build:** `npm run catalog` asks the iTunes Search API for up to 200 songs per artist. Apple returns them roughly most-popular first. The script merges live/radio/feat. versions into one song, drops instrumentals, remixes, karaoke, foreign-language duplicates and interludes, and keeps the earliest release year. It tags Christmas songs and classic hymns automatically.
 3. **Popularity** = artist fame × the song's rank in that artist's list (1–100). This drives Hits / Everything / Deep cuts and the Easy → Legend order within a run.
 4. **At play time** the app fetches the 5 songs' previews and album art in one Apple lookup call.
 
-To add artists, add a line to `scripts/artists.mjs` and run:
+To add artists or songs, edit those files and run:
 
 ```bash
 npm run catalog
+```
+
+Then check every song still has a playable preview (this removes any that don't, and spot-checks real audio and cover downloads):
+
+```bash
+npm run verify
 ```
 
 Responses are cached in `scripts/.cache/`, so re-runs only fetch new artists (`-- --fresh` re-downloads everything). Behind a corporate proxy, set `NODE_USE_ENV_PROXY=1`. The script waits about 3 seconds between requests to stay within Apple's rate limit, so a full fresh build takes about 15 minutes.

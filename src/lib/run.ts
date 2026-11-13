@@ -3,6 +3,8 @@ import { RUN_LENGTH } from './scoring'
 import { hashString, seededRandom } from './daily'
 
 export type Popularity = 'hits' | 'all' | 'deep'
+/** Which part of the catalog to draw from. */
+export type Library = 'all' | 'mine' | 'playlist'
 
 export type RunOptions = {
   /** Genre IDs. Empty means every genre. */
@@ -13,13 +15,14 @@ export type RunOptions = {
   yearFrom: number | null
   yearTo: number | null
   popularity: Popularity
+  library: Library
 }
 
 export const HIT_THRESHOLD = 35
 export const DEEP_THRESHOLD = 12
 export const MAX_ARTISTS = 60
 
-export const defaultOptions: RunOptions = { genres: [], artists: [], yearFrom: null, yearTo: null, popularity: 'all' }
+export const defaultOptions: RunOptions = { genres: [], artists: [], yearFrom: null, yearTo: null, popularity: 'all', library: 'all' }
 
 export function matchesPopularity(song: Song, popularity: Popularity): boolean {
   if (popularity === 'hits') return song.popularity >= HIT_THRESHOLD
@@ -39,6 +42,8 @@ export function filterSongs(catalog: Catalog, options: RunOptions, ignore?: 'gen
     if (ignore !== 'genres' && !wantsChristmas && song.genres.includes('christmas')) return false
     if (ignore !== 'genres' && !wantsInstrumental && song.genres.includes('instrumental')) return false
     if (ignore !== 'genres' && options.genres.length && !song.genres.some((genre) => options.genres.includes(genre))) return false
+    if (options.library === 'playlist' && !song.playlist) return false
+    if (options.library === 'mine' && !song.mine) return false
     if (ignore !== 'artists' && artists.size && !artists.has(song.artist)) return false
     if (yearFiltered && (!song.year || song.year < yearFrom || song.year > yearTo)) return false
     return matchesPopularity(song, options.popularity)
@@ -72,6 +77,24 @@ export function buildRun(pool: Song[], random: () => number = Math.random): Song
     picks.push(choices[Math.floor(random() * choices.length)] ?? slice[0])
   }
   return picks
+}
+
+/**
+ * Endless mode: the nth song comes from a difficulty level that rises every few
+ * songs, drawn from the same ranked bands as a normal run.
+ */
+export function endlessSong(pool: Song[], n: number, played: Set<string>): Song | undefined {
+  const ranked = [...pool].sort((a, b) => b.popularity - a.popularity || a.trackId - b.trackId)
+  const level = Math.min(BAND_EDGES.length - 2, Math.floor(n / 3))
+  const start = Math.floor(BAND_EDGES[level] * ranked.length)
+  const end = Math.max(start + 1, Math.floor(BAND_EDGES[level + 1] * ranked.length))
+  let choices = ranked.slice(start, end).filter((song) => !played.has(song.id))
+  if (!choices.length) choices = ranked.filter((song) => !played.has(song.id))
+  return choices[Math.floor(Math.random() * choices.length)]
+}
+
+export function endlessLevel(n: number): number {
+  return Math.min(BAND_EDGES.length - 2, Math.floor(n / 3))
 }
 
 export function dailyRun(catalog: Catalog, dateKey: string): Song[] {

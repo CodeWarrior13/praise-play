@@ -8,12 +8,15 @@ export type SongResult = {
   seconds: number
   wrongGuesses: number
   points: number
-  outcome: 'named' | 'skipped'
+  /** 'unavailable' = the audio didn't load; the song is swapped out and not scored. */
+  outcome: 'named' | 'skipped' | 'unavailable'
+  /** Seconds from the first play to naming (or skipping) the song. */
+  elapsed?: number
 }
 
 export type RunRecord = { total: number; results: SongResult[] }
 
-export type Stats = { runs: number; totalPoints: number; best: number; songsNamed: number; fastest?: number }
+export type Stats = { runs: number; totalPoints: number; best: number; songsNamed: number; fastest?: number; bestEndless?: number; bestEndlessSongs?: number }
 
 const PREFIX = 'praise-play:v4'
 
@@ -49,6 +52,14 @@ export function recordRun(run: RunRecord): Stats {
     stats.songsNamed += 1
     stats.fastest = Math.min(stats.fastest ?? Infinity, result.seconds)
   }
+  write('stats', stats)
+  return stats
+}
+
+export function recordEndless(total: number, named: number): Stats {
+  const stats = loadStats()
+  stats.bestEndless = Math.max(stats.bestEndless ?? 0, total)
+  stats.bestEndlessSongs = Math.max(stats.bestEndlessSongs ?? 0, named)
   write('stats', stats)
   return stats
 }

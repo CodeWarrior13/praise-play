@@ -16,13 +16,24 @@ type Props = {
   onUnlock?: (seconds: number) => void
   /** Penalty already taken off this song, shown in the worth readout. */
   penalty?: number
+  /** Start playing as soon as the audio is ready (the answer screen). */
+  autoPlay?: boolean
+  /** Called the first time the clip is played, to start the guess timer. */
+  onFirstPlay?: () => void
+  /** Space plays, → unlocks one more second, while the search box isn't focused. */
+  hotkeys?: boolean
+  /** The audio file failed to load or decode. */
+  onAudioError?: () => void
 }
 
+const typingInField = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
+
 /** Plays the start of the preview, with a logarithmic scrubber for unlocking more. */
-export function ClipPlayer({ preview, startSeconds, unlocked, onUnlock, penalty = 0 }: Props) {
+export function ClipPlayer({ preview, startSeconds, unlocked, onUnlock, penalty = 0, autoPlay = false, onFirstPlay, hotkeys = false, onAudioError }: Props) {
   const audioRef = useRef<HTMLAudioElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
   const frame = useRef(0)
+  const played = useRef(false)
   const [playing, setPlaying] = useState(false)
   const [position, setPosition] = useState(0)
   const [dragTo, setDragTo] = useState<number | null>(null)
@@ -45,6 +56,7 @@ export function ClipPlayer({ preview, startSeconds, unlocked, onUnlock, penalty 
   async function play(seconds = limit) {
     const audio = audioRef.current
     if (!audio) return
+    if (!played.current) { played.current = true; onFirstPlay?.() }
     cancelAnimationFrame(frame.current)
     audio.currentTime = startSeconds
     setPosition(0)
@@ -67,6 +79,31 @@ export function ClipPlayer({ preview, startSeconds, unlocked, onUnlock, penalty 
     }
     frame.current = requestAnimationFrame(tick)
   }
+
+  // Answer screen: let the song keep playing once it's revealed.
+  useEffect(() => {
+    if (autoPlay && ready) play()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPlay, ready])
+
+  // Keyboard shortcuts while guessing.
+  const latest = useRef({ play, stop, unlock: (s: number) => unlock(s), playing, unlocked })
+  latest.current = { play, stop, unlock: (s: number) => unlock(s), playing, unlocked }
+  useEffect(() => {
+    if (!hotkeys) return
+    const onKey = (event: KeyboardEvent) => {
+      if (typingInField(event.target) || event.metaKey || event.ctrlKey || event.altKey) return
+      const { play, stop, unlock, playing, unlocked } = latest.current
+      if (event.key === ' ') {
+        if (event.target instanceof HTMLButtonElement) return // Space already presses the focused button.
+        event.preventDefault()
+        if (playing) stop(); else play()
+      }
+      else if (event.key === 'ArrowRight') { event.preventDefault(); unlock(Math.min(MAX_CLIP, unlocked + 1)) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [hotkeys])
 
   function unlock(seconds: number) {
     if (!onUnlock) return
@@ -189,7 +226,7 @@ export function ClipPlayer({ preview, startSeconds, unlocked, onUnlock, penalty 
         <input type="range" min={0} max={1} step={0.05} value={volume} onChange={(e) => changeVolume(Number(e.target.value))} aria-label="Volume" />
       </label>
 
-      {preview && preview !== 'loading' && <audio ref={audioRef} src={preview.audioUrl} preload="auto" />}
+      {preview && preview !== 'loading' && <audio ref={audioRef} src={preview.audioUrl} preload="auto" onError={onAudioError} />}
     </div>
   )
 }
