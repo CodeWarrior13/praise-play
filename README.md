@@ -1,6 +1,6 @@
 # Praise Play
 
-A daily song-guessing game for Christian music. This repository contains an original starter app and game engine; it does not include copyrighted music or a third-party song catalog.
+A private, personal daily song-guessing game focused on Christian music. This repository contains an original starter app and game-design groundwork; it does not include copyrighted recordings or a third-party song catalog.
 
 ## Run locally
 
@@ -11,34 +11,37 @@ npm install
 npm run dev
 ```
 
-Open the local URL printed by Vite. To make production build:
+Open the local URL printed by Vite. To make a production build:
 
 ```bash
 npm run build
 npm run preview
 ```
 
-## Add songs and audio
-
-The starter catalog lives in `src/data/songs.ts`. Replace the clearly labeled fictional demo entries with songs you have permission to use. Each entry supports an `audioUrl` (a short, licensed preview URL) and `previewStartSeconds`. Without an audio URL, the game displays the song's hint instead of a play button.
-
-Before using real music, confirm that your hosting, streaming, preview, and game use are covered by the relevant rights and provider terms. Do not scrape another game's catalog or audio. A production catalog should be managed server-side rather than bundled into the browser.
-
 ## Current groundwork
 
-- Responsive, accessible React + TypeScript + Vite app.
-- One daily puzzle selected consistently for each UTC calendar day.
-- Optional audio previews with bounded playback and text-hint fallback.
-- Answer choices, answer feedback, and per-day completion saved in the browser.
-- Fictional demo catalog and setup notes; no real songs or recordings included.
+- Responsive React + TypeScript + Vite starter app.
+- Stable daily puzzle selection and local completion state.
+- Song metadata type with extensible genre tags.
+- A proposed, configurable clip progression and broad genre taxonomy documented in `docs/game-design.md`.
+- Spotify integration and catalog import are intentionally not implemented: private use alone does not establish that Spotify permits a music-quiz/game use. See `docs/music-content-and-spotify.md` and confirm permission with Spotify before connecting it.
+- Fictional demo entries only; no real songs or recordings included.
 
-## Next steps for a production version
+## Adding music
 
-1. Choose a licensed music source and obtain permission for the intended preview/game use.
-2. Move song metadata and daily puzzle selection to an API/database so answers and future puzzles are not exposed in client code.
-3. Add accounts or cross-device statistics only if needed; the current version stores progress locally.
-4. Add automated tests, analytics with privacy safeguards, and deployment configuration.
+Replace demo entries only with content you have permission to use. Do not scrape another game's catalog or audio. A production catalog should be managed outside the browser bundle so answers and future daily puzzles are not exposed to players.
+
+Review `docs/music-content-and-spotify.md` before connecting a provider. Do not put Spotify client secrets, API tokens, or other credentials in frontend code or commit them to Git.
+
+## Next steps
+
+1. Decide on a permitted audio source and obtain any required permission for the quiz/game use.
+2. You: create a Spotify Developer app only if Spotify confirms your intended use is allowed; then keep credentials private and configure redirect URLs.
+3. Choose a starter set of genre tags from `src/data/genres.ts`; add more tags as needed without trying to model every microgenre on day one.
+4. Add authorized songs with metadata, genre tags, and audio capability supported by your chosen source.
+5. Implement the staged listening/guessing loop against the approved audio source; the current UI is a scaffold, not a finished integration.
+6. Add tests and deploy privately only after the provider and content rights are settled.
 
 ## Tech
 
-React, TypeScript, and Vite. The project is intentionally frontend-only at this stage, so it can be connected to a backend or agent workflow later without locking in a provider.
+React, TypeScript, and Vite. This is intentionally frontend-only at this stage and does not lock the project into a backend or music provider.
