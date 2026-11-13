@@ -1,11 +1,8 @@
-import { useState } from 'react'
-import { songs } from '../data/songs'
+import { useEffect, useState } from 'react'
 import { MAX_POINTS, formatPoints, formatSeconds } from '../lib/scoring'
 import type { RunRecord } from '../lib/storage'
 import { msUntilTomorrow } from '../lib/daily'
-import { useEffect } from 'react'
-
-const songById = new Map(songs.map((song) => [song.id, song]))
+import { Confetti, CountUp } from './Fx'
 
 function square(points: number, skipped: boolean): string {
   if (skipped) return '⬛'
@@ -14,12 +11,11 @@ function square(points: number, skipped: boolean): string {
   return '🟧'
 }
 
-function verdict(total: number, max: number): string {
-  const ratio = total / max
-  if (ratio >= 0.8) return 'Hallelujah! Incredible ears.'
-  if (ratio >= 0.6) return 'Well done — you know your worship.'
+function verdict(ratio: number): string {
+  if (ratio >= 0.8) return 'Hallelujah — incredible ears!'
+  if (ratio >= 0.6) return 'Well done. You know your worship.'
   if (ratio >= 0.4) return 'Solid run!'
-  if (ratio > 0) return 'Good effort — keep listening.'
+  if (ratio > 0) return 'Good effort. Keep listening!'
   return 'Tough set. Try another run!'
 }
 
@@ -28,10 +24,11 @@ type Props = { run: RunRecord; daily: number | null; onAgain: () => void; onHome
 export function Summary({ run, daily, onAgain, onHome }: Props) {
   const [copied, setCopied] = useState(false)
   const max = MAX_POINTS * run.results.length
+  const ratio = run.total / max
 
   async function share() {
     const line = run.results.map((r) => `${square(r.points, r.outcome === 'skipped')} ${r.outcome === 'skipped' ? 'skip' : formatSeconds(r.seconds)}`).join('\n')
-    const head = daily ? `Praise Play · Day #${daily}` : 'Praise Play'
+    const head = daily ? `Praise Play · Day ${daily}` : 'Praise Play'
     const text = `${head}\n${formatPoints(run.total)} / ${formatPoints(max)}\n${line}\n${location.origin}${location.pathname}`
     try {
       if (navigator.share && matchMedia('(pointer: coarse)').matches) await navigator.share({ text })
@@ -42,28 +39,30 @@ export function Summary({ run, daily, onAgain, onHome }: Props) {
   }
 
   return (
-    <section className="card summary">
-      <p className="eyebrow">{daily ? `Day #${daily} complete` : 'Run complete'}</p>
-      <div className="total"><strong>{formatPoints(run.total)}</strong><span>/ {formatPoints(max)}</span></div>
-      <p className="summary-verdict">{verdict(run.total, max)}</p>
+    <section className="card summary enter">
+      {ratio >= 0.5 && <Confetti count={60} />}
+      <p className="eyebrow">{daily ? `Day ${daily} complete` : 'Run complete'}</p>
+      <div className="total">
+        <strong className="gradient-text"><CountUp value={run.total} duration={1400} /></strong>
+        <span>/ {formatPoints(max)}</span>
+      </div>
+      <div className="meter" aria-hidden="true"><span style={{ width: `${ratio * 100}%` }} /></div>
+      <p className="summary-verdict">{verdict(ratio)}</p>
       <ol className="result-list">
-        {run.results.map((result, i) => {
-          const song = songById.get(result.songId)
-          return (
-            <li key={i}>
-              <span className="sq">{square(result.points, result.outcome === 'skipped')}</span>
-              <span className="result-song"><strong>{song?.title}</strong><span>{song?.artist}</span></span>
-              <span className="result-pts">
-                <strong>{result.outcome === 'skipped' ? '—' : formatPoints(result.points)}</strong>
-                <span>{result.outcome === 'skipped' ? 'skipped' : `${formatSeconds(result.seconds)}${result.wrongGuesses ? ` · ${result.wrongGuesses}✕` : ''}`}</span>
-              </span>
-            </li>
-          )
-        })}
+        {run.results.map((result, i) => (
+          <li key={i} style={{ animationDelay: `${300 + i * 90}ms` }}>
+            <span className="sq">{square(result.points, result.outcome === 'skipped')}</span>
+            <span className="result-song"><strong>{result.title}</strong><span>{result.artist}</span></span>
+            <span className="result-pts">
+              <strong>{result.outcome === 'skipped' ? '—' : formatPoints(result.points)}</strong>
+              <span>{result.outcome === 'skipped' ? 'skipped' : `${formatSeconds(result.seconds)}${result.wrongGuesses ? ` · ${result.wrongGuesses}✕` : ''}`}</span>
+            </span>
+          </li>
+        ))}
       </ol>
       <div className="summary-actions">
-        <button className="primary" onClick={share}>{copied ? 'Copied!' : 'Share'}</button>
-        <button className="secondary" onClick={onAgain}>{daily ? 'Play a free run' : 'Play again'}</button>
+        <button className="primary shine" onClick={share}>{copied ? 'Copied!' : 'Share score'}</button>
+        <button className="ghost" onClick={onAgain}>{daily ? 'Play a free run' : 'Play again'}</button>
       </div>
       <button className="text-button" onClick={onHome}>Change run options</button>
       {daily && <Countdown />}

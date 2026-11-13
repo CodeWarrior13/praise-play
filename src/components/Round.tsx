@@ -1,25 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
-import { songs, type Song } from '../data/songs'
+import type { Catalog, Song } from '../lib/catalog'
 import { isCorrectGuess } from '../lib/daily'
 import { getPreview, type Preview } from '../lib/preview'
-import { DIFFICULTY, MIN_CLIP, WRONG_GUESS_PENALTY, formatPoints, formatSeconds, songPoints } from '../lib/scoring'
+import { DIFFICULTY, MIN_CLIP, WRONG_GUESS_PENALTY, formatSeconds, songPoints } from '../lib/scoring'
 import type { SongResult } from '../lib/storage'
 import { ClipPlayer } from './ClipPlayer'
 import { GuessBox } from './GuessBox'
-
-const songById = new Map(songs.map((song) => [song.id, song]))
+import { Confetti, CountUp } from './Fx'
 
 type Props = {
+  catalog: Catalog
   song: Song
   index: number
   total: number
   runScore: number
-  nextSong?: Song
   onNext: (result: SongResult) => void
   onQuit: () => void
 }
 
-export function Round({ song, index, total, runScore, nextSong, onNext, onQuit }: Props) {
+export function Round({ catalog, song, index, total, runScore, onNext, onQuit }: Props) {
   const [unlocked, setUnlocked] = useState(MIN_CLIP)
   const [wrong, setWrong] = useState<string[]>([])
   const [result, setResult] = useState<SongResult | null>(null)
@@ -29,61 +28,65 @@ export function Round({ song, index, total, runScore, nextSong, onNext, onQuit }
   useEffect(() => {
     let live = true
     getPreview(song).then((found) => live && setPreview(found))
-    // Warm up the next song so it is ready the moment this one ends.
-    if (nextSong) getPreview(nextSong)
     return () => { live = false }
-  }, [song, nextSong])
+  }, [song])
 
-  function guess(choice: Song) {
-    if (isCorrectGuess(choice, song)) {
-      setResult({ songId: song.id, seconds: unlocked, wrongGuesses: wrong.length, points: songPoints(unlocked, wrong.length), outcome: 'named' })
-    } else {
-      setWrong((list) => [...list, choice.id])
-    }
+  function finish(outcome: SongResult['outcome']) {
+    setResult({
+      songId: song.id,
+      title: song.title,
+      artist: song.artist,
+      seconds: unlocked,
+      wrongGuesses: wrong.length,
+      points: outcome === 'named' ? songPoints(unlocked, wrong.length) : 0,
+      outcome,
+    })
   }
 
-  function skip() {
-    setResult({ songId: song.id, seconds: unlocked, wrongGuesses: wrong.length, points: 0, outcome: 'skipped' })
+  function guess(choice: Song) {
+    if (isCorrectGuess(choice, song)) finish('named')
+    else setWrong((list) => [...list, choice.id])
   }
 
   const last = index === total - 1
-  const art = preview && preview !== 'loading' ? preview.artworkUrl : undefined
-  const link = preview && preview !== 'loading' ? preview.trackUrl : undefined
+  const loaded = preview && preview !== 'loading' ? preview : null
+  const difficulty = DIFFICULTY[Math.round((index / Math.max(1, total - 1)) * (DIFFICULTY.length - 1))]
 
   return (
-    <section className="card round" aria-label={`Song ${index + 1} of ${total}`}>
+    <section className="card round enter" aria-label={`Song ${index + 1} of ${total}`}>
       <div className="round-head">
         <div className="steps" aria-hidden="true">
           {Array.from({ length: total }, (_, i) => <span key={i} className={i < index ? 'done' : i === index ? 'now' : ''} />)}
         </div>
         <div className="round-meta">
-          <span>Song {index + 1} of {total} · <em>{DIFFICULTY[Math.round((index / Math.max(1, total - 1)) * (DIFFICULTY.length - 1))]}</em></span>
-          <span className="run-score">{formatPoints(runScore + (result?.points ?? 0))} pts</span>
+          <span>Song {index + 1} of {total} <span className={`badge d${index}`}>{difficulty}</span></span>
+          <span className="run-score"><CountUp value={runScore + (result?.points ?? 0)} /> pts</span>
         </div>
       </div>
 
       {!result ? (
-        <>
-          <ClipPlayer key={song.id} preview={preview} startSeconds={song.startSeconds ?? 0} unlocked={unlocked} onUnlock={setUnlocked} penalty={wrong.length * WRONG_GUESS_PENALTY} />
+        <div className="round-body">
+          <ClipPlayer key={song.id} preview={preview} startSeconds={0} unlocked={unlocked} onUnlock={setUnlocked} penalty={wrong.length * WRONG_GUESS_PENALTY} />
           {preview === null && <p className="notice">Couldn’t load audio for this song. Skip to see what it was.</p>}
-          <GuessBox excluded={excluded} onGuess={guess} onSkip={skip} shake={wrong.length} />
+          <GuessBox songs={catalog.songs} excluded={excluded} onGuess={guess} onSkip={() => finish('skipped')} shake={wrong.length} />
           {wrong.length > 0 && (
             <ul className="wrong-list" aria-label="Wrong guesses">
               {wrong.map((id) => {
-                const s = songById.get(id)
+                const s = catalog.byId.get(id)
                 return <li key={id}><span>✕ {s?.title} <em>— {s?.artist}</em></span><span className="minus">−{WRONG_GUESS_PENALTY}</span></li>
               })}
             </ul>
           )}
-          <p className="hint-line">Press play for the first 0.1s. Drag the bar or tap a time to hear more — the less you hear, the more it’s worth.</p>
-        </>
+          <p className="hint-line">Tap play for the first 0.1s · drag the bar or tap a time to hear more</p>
+        </div>
       ) : (
         <div className="reveal" role="status">
+          {result.outcome === 'named' && <Confetti />}
           <div className={`verdict ${result.outcome}`}>
             {result.outcome === 'named' ? (
               <>
-                <strong>+{formatPoints(result.points)}</strong>
-                <span>Named in {formatSeconds(result.seconds)}{result.wrongGuesses ? ` with ${result.wrongGuesses} wrong guess${result.wrongGuesses > 1 ? 'es' : ''}` : ''}</span>
+                <strong>+<CountUp value={result.points} duration={900} /></strong>
+                <span>Named in {formatSeconds(result.seconds)}{result.wrongGuesses ? ` · ${result.wrongGuesses} wrong guess${result.wrongGuesses > 1 ? 'es' : ''}` : ''}</span>
               </>
             ) : (
               <>
@@ -93,11 +96,15 @@ export function Round({ song, index, total, runScore, nextSong, onNext, onQuit }
             )}
           </div>
           <div className="answer-card">
-            {art ? <img src={art} alt="" width={96} height={96} /> : <div className="art-placeholder" aria-hidden="true">♪</div>}
-            <div>
+            <div className="art-stack">
+              <span className="vinyl" aria-hidden="true" />
+              {loaded?.artworkUrl ? <img src={loaded.artworkUrl} alt={`${loaded.album ?? song.title} cover`} width={112} height={112} /> : <div className="art-placeholder" aria-hidden="true">♪</div>}
+            </div>
+            <div className="answer-text">
               <strong>{song.title}</strong>
-              <span>{song.artist}{song.year ? ` · ${song.year}` : ''}</span>
-              {link && <a href={link} target="_blank" rel="noreferrer">Listen on Apple Music ↗</a>}
+              <span>{song.artist}</span>
+              <span className="small">{[loaded?.album, song.year].filter(Boolean).join(' · ')}</span>
+              {loaded?.trackUrl && <a href={loaded.trackUrl} target="_blank" rel="noreferrer">Listen on Apple Music ↗</a>}
             </div>
           </div>
           <ClipPlayer preview={preview} startSeconds={0} unlocked={30} />
@@ -108,3 +115,4 @@ export function Round({ song, index, total, runScore, nextSong, onNext, onQuit }
     </section>
   )
 }
+

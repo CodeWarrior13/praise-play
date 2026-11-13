@@ -7,7 +7,7 @@ A Christian-music song-guessing game. Each song starts at **0.1 seconds** of aud
 - **Runs of 5 songs**, ordered from best-known to least-known (Easy → Legend), scored out of 50,000. There's no daily limit.
 - **Unlocking more:** drag the logarithmic scrubber, tap the 0.1s, 0.5s, 1s and 3s buttons, or press +1s. The current "worth" updates as you go.
 - **Scoring:** 10,000 points at 0.1s, falling steeply at first and reaching 3,000 at the full 30s (`clipWorth` in `src/lib/scoring.ts`). Each wrong guess costs 500, and the song keeps going. Skip reveals the answer and scores 0.
-- **Run options:** pick any mix of genres, up to 20 artists, an era range, and "well-known only". The pool size updates as you change them. A narrow pool is still ranked from easy to hard.
+- **Run options:** Hits / Everything / Deep cuts, any mix of 16 genres, up to 60 artists (or one tap for your Spotify top artists), and an era range with decade shortcuts. A narrow pool is still ranked from easy to hard.
 - **Today's run:** the same 5 songs for everyone each day, so you can compare scores. Each day can be played once.
 - **End of run:** a per-song breakdown, a shareable emoji summary, and your best/average/fastest stats (stored on the device).
 
@@ -20,24 +20,30 @@ npm install
 npm run dev
 ```
 
-## Adding songs
+## The song catalog
 
-Edit `src/data/songs.ts`. Each song needs a unique `id`, `title`, `artist`, one or more `genres` from `src/data/genres.ts`, and a `popularity` from 1 to 10. Popularity sets how early the song can appear in a run; 6 or higher counts as "well-known". Optional fields:
+Songs live in `public/catalog.json`, which is generated, not hand-written.
 
-- `itunesTrackId`: pins the exact recording if the automatic search picks the wrong version. The ID is the `?i=` number in an Apple Music song link.
-- `startSeconds`: skips a quiet intro in the preview.
-- `audioUrl`: uses your own audio file instead of the Apple preview.
+1. **The roster:** `scripts/artists.mjs` lists about 240 Christian artists, each with genre tags and a fame score (1–10). Artists marked `m` are the player's Spotify top artists. They get a quick "your artists" button in Run options.
+2. **The build:** `npm run catalog` asks the iTunes Search API for up to 200 songs per artist. Apple returns them roughly most-popular first. The script merges live/radio/feat. versions into one song, drops instrumentals, remixes, karaoke, foreign-language duplicates and interludes, and keeps the earliest release year. It tags Christmas songs and classic hymns automatically.
+3. **Popularity** = artist fame × the song's rank in that artist's list (1–100). This drives Hits / Everything / Deep cuts and the Easy → Legend order within a run.
+4. **At play time** the app fetches the 5 songs' previews and album art in one Apple lookup call.
 
-Add new songs anywhere in the list.
+To add artists, add a line to `scripts/artists.mjs` and run:
 
-Scoring, the run length and the clip limits are in `src/lib/scoring.ts`. The genre buttons are in `src/data/groups.ts`.
+```bash
+npm run catalog
+```
 
-## Audio source
+Responses are cached in `scripts/.cache/`, so re-runs only fetch new artists (`-- --fresh` re-downloads everything). Behind a corporate proxy, set `NODE_USE_ENV_PROXY=1`. The script waits about 3 seconds between requests to stay within Apple's rate limit, so a full fresh build takes about 15 minutes.
 
-Audio comes from the **iTunes Search API's 30-second previews**, which are free and need no API key or account. The browser looks each song up at play time. No audio is downloaded or stored in this repo. The answer screen links back to Apple Music for attribution. See `docs/music-content-and-spotify.md` for the reasoning and caveats.
+## Themes
+
+The palette button in the header switches between six themes (Sanctuary, Aurora, Ember, Deep Water, Midnight Gold, Dawn). The choice is remembered on the device. Themes are just sets of CSS variables in `src/lib/theme.ts`, so adding one is a single object.
 
 ## Known limits
 
-- The catalog ships inside the frontend bundle, so a determined player could read the answers in dev tools. Moving the catalog behind a small API would fix this if it ever matters.
+- The catalog is a public JSON file, so a determined player could look up answers. Moving it behind a small API would fix that if it ever matters.
+- Spotify can't be the audio source: its API no longer serves previews to new apps, and the Spotify connector can't list a playlist's tracks. Spotify was used to find your top artists, which seeded the roster.
 - Multiplayer rooms aren't built; they would need a server.
 - Very short clips (0.1s) depend on the browser starting playback quickly. They work well once the preview has loaded, and the player preloads it.

@@ -2,6 +2,8 @@ import { defaultOptions, type RunOptions } from './run'
 
 export type SongResult = {
   songId: string
+  title: string
+  artist: string
   /** Clip length unlocked when the song was named (or skipped). */
   seconds: number
   wrongGuesses: number
@@ -13,7 +15,7 @@ export type RunRecord = { total: number; results: SongResult[] }
 
 export type Stats = { runs: number; totalPoints: number; best: number; songsNamed: number; fastest?: number }
 
-const PREFIX = 'praise-play:v3'
+const PREFIX = 'praise-play:v4'
 
 function read<T>(key: string): T | null {
   try {

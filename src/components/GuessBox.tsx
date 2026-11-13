@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
-import { songs, type Song } from '../data/songs'
+import type { Song } from '../lib/catalog'
 import { normalize } from '../lib/daily'
 
-type Props = { excluded: Set<string>; onGuess: (song: Song) => void; onSkip: () => void; shake: number }
+type Props = { songs: Song[]; excluded: Set<string>; onGuess: (song: Song) => void; onSkip: () => void; shake: number }
 
 /** Search the whole catalog by title or artist and pick a song. */
-export function GuessBox({ excluded, onGuess, onSkip, shake }: Props) {
+export function GuessBox({ songs, excluded, onGuess, onSkip, shake }: Props) {
   const [query, setQuery] = useState('')
   const [highlight, setHighlight] = useState(0)
   const [open, setOpen] = useState(false)
@@ -14,15 +14,16 @@ export function GuessBox({ excluded, onGuess, onSkip, shake }: Props) {
     const q = normalize(query)
     if (!q) return []
     const words = q.split(' ')
-    return songs
-      .filter((song) => !excluded.has(song.id))
-      .filter((song) => {
-        const haystack = normalize(`${song.title} ${song.artist}`)
-        return words.every((word) => haystack.includes(word))
-      })
-      .sort((a, b) => Number(!normalize(a.title).startsWith(q)) - Number(!normalize(b.title).startsWith(q)) || b.popularity - a.popularity)
+    const found: Song[] = []
+    for (const song of songs) {
+      if (excluded.has(song.id)) continue
+      if (words.every((word) => song.search.includes(word))) found.push(song)
+    }
+    const titleStarts = (song: Song) => normalize(song.title).startsWith(q)
+    return found
+      .sort((a, b) => Number(titleStarts(b)) - Number(titleStarts(a)) || b.popularity - a.popularity)
       .slice(0, 8)
-  }, [query, excluded])
+  }, [query, songs, excluded])
 
   function pick(song: Song) {
     onGuess(song)
@@ -48,19 +49,18 @@ export function GuessBox({ excluded, onGuess, onSkip, shake }: Props) {
           onFocus={() => setOpen(true)}
           onBlur={() => window.setTimeout(() => setOpen(false), 120)}
           onKeyDown={onKeyDown}
-          placeholder="Type a title or artist…"
-          aria-label="Search for a song"
+          placeholder="Name that song…"
+          aria-label="Search for a song by title or artist"
           role="combobox"
           aria-expanded={open && matches.length > 0}
           aria-controls="song-options"
           autoComplete="off"
           spellCheck={false}
-          autoFocus
         />
         {open && matches.length > 0 && (
           <ul className="suggestions" id="song-options" role="listbox">
             {matches.map((song, index) => (
-              <li key={song.id} role="option" aria-selected={index === highlight} className={index === highlight ? 'highlight' : ''} onMouseDown={(e) => { e.preventDefault(); pick(song) }} onMouseEnter={() => setHighlight(index)}>
+              <li key={song.id} role="option" aria-selected={index === highlight} className={index === highlight ? 'highlight' : ''} style={{ animationDelay: `${index * 18}ms` }} onMouseDown={(e) => { e.preventDefault(); pick(song) }} onMouseEnter={() => setHighlight(index)}>
                 <strong>{song.title}</strong> <span>{song.artist}</span>
               </li>
             ))}
@@ -68,7 +68,7 @@ export function GuessBox({ excluded, onGuess, onSkip, shake }: Props) {
         )}
         {open && query.trim().length > 1 && matches.length === 0 && <div className="suggestions none">No songs match “{query.trim()}”.</div>}
       </div>
-      <button className="secondary skip" onClick={onSkip}>Skip</button>
+      <button className="ghost skip" onClick={onSkip}>Skip</button>
     </div>
   )
 }

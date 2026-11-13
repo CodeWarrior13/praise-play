@@ -1,4 +1,4 @@
-import type { Song } from '../data/songs'
+import type { Song } from './catalog'
 
 /** Local calendar date as YYYY-MM-DD, so the daily run changes at the player's midnight. */
 export function localDateKey(date = new Date()): string {

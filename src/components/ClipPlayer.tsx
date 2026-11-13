@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Preview } from '../lib/preview'
 import { MAX_CLIP, MIN_CLIP, clipWorth, formatPoints, formatSeconds, fromPosition, roundClip, toPosition } from '../lib/scoring'
 import { loadSetting, saveSetting } from '../lib/storage'
+import { CountUp, Equalizer } from './Fx'
 
 const TICKS = [0.1, 0.5, 1, 3, 10, 30]
 const JUMPS = [0.1, 0.5, 1, 3]
@@ -120,11 +121,11 @@ export function ClipPlayer({ preview, startSeconds, unlocked, onUnlock, penalty 
   const worth = Math.max(0, clipWorth(shown) - penalty)
 
   return (
-    <div className={`player${reveal ? ' player-reveal' : ''}`}>
+    <div className={`player${reveal ? ' player-reveal' : ''}${playing ? ' is-playing' : ''}`}>
       {!reveal && (
         <div className="worth">
           <span>Worth</span>
-          <strong>{formatPoints(worth)}</strong>
+          <strong><CountUp value={worth} duration={350} format={formatPoints} /></strong>
           <span>at {formatSeconds(shown)}</span>
         </div>
       )}
@@ -172,11 +173,11 @@ export function ClipPlayer({ preview, startSeconds, unlocked, onUnlock, penalty 
         ) : (
           <span className="time">{formatSeconds(Math.max(0, position))}</span>
         )}
-        <button className="play-button" onClick={() => (playing ? stop() : play())} disabled={!ready} aria-label={playing ? 'Stop' : `Play ${formatSeconds(limit)}`}>
+        <button className={`play-button${playing ? ' playing' : ''}`} onClick={() => (playing ? stop() : play())} disabled={!ready} aria-label={playing ? 'Stop' : `Play ${formatSeconds(limit)}`}>
           {preview === 'loading' ? (
             <span className="spinner" />
           ) : playing ? (
-            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" /></svg>
+            <Equalizer active />
           ) : (
             <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5L8 5.5Z" fill="currentColor" /></svg>
           )}
