@@ -16,3 +16,14 @@ Also verify current API availability before designing around previews. Preview U
 - [ ] Only import tracks you personally curate or otherwise have permission to use; don't scrape a game/site or bulk-copy a catalog.
 
 No Spotify credentials or integration code are included in this repository. This document is implementation guidance, not legal advice.
+
+## Current choice: Apple / iTunes previews
+
+The game now uses the public iTunes Search API to find each song's 30-second preview at play time (`src/lib/preview.ts`). This was chosen because:
+
+- It needs no API key, account, or server, so no secrets are involved.
+- Spotify no longer returns preview URLs to new apps, so a Spotify-based clip game isn't practical anyway.
+- Audio streams straight from Apple's servers. Nothing is downloaded, re-hosted, or cut into files.
+- The answer screen credits the track and links to it on Apple Music.
+
+Apple's preview terms are written with promotion and linking in mind. A private game that credits and links each track is a common use of them, but it isn't explicitly approved. If you ever make the game public or earn money from it, check Apple's current Affiliate and API terms first. You can also move to audio you own by setting `audioUrl` on each song.

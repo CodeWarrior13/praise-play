@@ -1,6 +1,15 @@
 # Praise Play
 
-A private, personal daily song-guessing game focused on Christian music. This repository contains an original starter app and game-design groundwork; it does not include copyrighted recordings or a third-party song catalog.
+A daily "name that song" game for Christian music. You hear a tiny clip of a song, and each skip or wrong guess unlocks a longer one: **0.5s → 1s → 2s → 4s → 8s → 16s**. You have six tries to find it.
+
+## Features
+
+- **Daily song** that's the same for everyone on a given date and changes at local midnight. No song repeats until the whole catalog for that genre has been used.
+- **Genre modes:** All Christian, Worship, Pop & CCM, Rock, Gospel, and Country & Roots. Each mode has its own daily song and its own stats.
+- **Unlimited mode** for endless practice with random songs.
+- **Searchable guess box** (by title or artist) with keyboard navigation.
+- **Reveal screen** with artwork, the full 30-second preview, a link to Apple Music, a shareable emoji result grid, and a countdown to the next song.
+- **Stats:** games played, win rate, current and best streaks, and how many seconds you needed. Stored on the device.
 
 ## Run locally
 
@@ -11,37 +20,23 @@ npm install
 npm run dev
 ```
 
-Open the local URL printed by Vite. To make a production build:
+## Adding songs
 
-```bash
-npm run build
-npm run preview
-```
+Edit `src/data/songs.ts`. Each song needs a unique `id`, `title`, `artist`, and one or more `genres` from `src/data/genres.ts`. Optional fields:
 
-## Current groundwork
+- `itunesTrackId`: pins the exact recording if the automatic search picks the wrong version. The ID is the `?i=` number in an Apple Music song link.
+- `startSeconds`: skips a quiet intro in the preview.
+- `audioUrl`: uses your own audio file instead of the Apple preview.
 
-- Responsive React + TypeScript + Vite starter app.
-- Stable daily puzzle selection and local completion state.
-- Song metadata type with extensible genre tags.
-- A proposed, configurable clip progression and broad genre taxonomy documented in `docs/game-design.md`.
-- Spotify integration and catalog import are intentionally not implemented: private use alone does not establish that Spotify permits a music-quiz/game use. See `docs/music-content-and-spotify.md` and confirm permission with Spotify before connecting it.
-- Fictional demo entries only; no real songs or recordings included.
+Don't change a song's `id` after it has appeared in a daily puzzle. Add new songs anywhere in the list.
 
-## Adding music
+To change the clip lengths or the number of tries, edit `CLIP_STAGES` in `src/lib/daily.ts`. To add or change genre modes, edit `src/data/modes.ts`.
 
-Replace demo entries only with content you have permission to use. Do not scrape another game's catalog or audio. A production catalog should be managed outside the browser bundle so answers and future daily puzzles are not exposed to players.
+## Audio source
 
-Review `docs/music-content-and-spotify.md` before connecting a provider. Do not put Spotify client secrets, API tokens, or other credentials in frontend code or commit them to Git.
+Audio comes from the **iTunes Search API's 30-second previews**, which are free and need no API key or account. The browser looks each song up at play time. No audio is downloaded or stored in this repo. The answer screen links back to Apple Music for attribution. See `docs/music-content-and-spotify.md` for the reasoning and caveats.
 
-## Next steps
+## Known limits
 
-1. Decide on a permitted audio source and obtain any required permission for the quiz/game use.
-2. You: create a Spotify Developer app only if Spotify confirms your intended use is allowed; then keep credentials private and configure redirect URLs.
-3. Choose a starter set of genre tags from `src/data/genres.ts`; add more tags as needed without trying to model every microgenre on day one.
-4. Add authorized songs with metadata, genre tags, and audio capability supported by your chosen source.
-5. Implement the staged listening/guessing loop against the approved audio source; the current UI is a scaffold, not a finished integration.
-6. Add tests and deploy privately only after the provider and content rights are settled.
-
-## Tech
-
-React, TypeScript, and Vite. This is intentionally frontend-only at this stage and does not lock the project into a backend or music provider.
+- The catalog ships inside the frontend bundle, so a determined player could read the answers in dev tools. Moving the catalog behind a small API would fix this if it ever matters.
+- Very short clips (0.5s) depend on the browser starting playback quickly. They work well once the preview has loaded, and the player preloads it.

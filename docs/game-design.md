@@ -2,7 +2,7 @@
 
 ## Round loop
 
-The game can use a staged-reveal loop: play a short segment, allow a guess or skip, then unlock a longer segment. A reasonable *starting proposal* is 1, 3, 5, 10, and 15 seconds, with a final reveal/answer step. Tune these values only after choosing an audio provider that permits this use and supports reliable playback/seeking. Very tiny clips (for example 0.1 seconds) are difficult to hear, may be rounded by browsers, and should not be assumed to work consistently.
+The game can use a staged-reveal loop: play a short segment, allow a guess or skip, then unlock a longer segment. The game currently uses 0.5, 1, 2, 4, 8, and 16 seconds (six tries), configured in `src/lib/daily.ts`. Tune these values only after choosing an audio provider that permits this use and supports reliable playback/seeking. Very tiny clips (for example 0.1 seconds) are difficult to hear, may be rounded by browsers, and should not be assumed to work consistently.
 
 Suggested round rules:
 
