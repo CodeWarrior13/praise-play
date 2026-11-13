@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { loadCatalog, type Catalog, type Song } from './lib/catalog'
 import { dayNumber, localDateKey } from './lib/daily'
 import { prefetchPreviews } from './lib/preview'
@@ -11,6 +11,8 @@ import { Round } from './components/Round'
 import { Summary } from './components/Summary'
 import { ThemePicker } from './components/ThemePicker'
 import { Backdrop } from './components/Fx'
+import { HelpDialog } from './components/HelpDialog'
+import { saveSetting } from './lib/storage'
 
 export type Mode = 'run' | 'daily' | 'endless'
 export const ENDLESS_LIVES = 3
@@ -36,7 +38,26 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>({ kind: 'home' })
   const [stats, setStats] = useState(loadStats)
   const [themeId, setThemeId] = useState(loadThemeId)
+  const [helpOpen, setHelpOpen] = useState(false)
   const today = localDateKey()
+
+  // H opens help from anywhere (except while typing); the dialog handles closing.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      if (event.metaKey || event.ctrlKey || event.altKey || event.key.toLowerCase() !== 'h') return
+      if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return
+      event.preventDefault()
+      setHelpOpen(true)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  const closeHelp = useCallback(() => {
+    saveSetting('seenHelp', true)
+    setHelpOpen(false)
+  }, [])
 
   useEffect(() => { applyTheme(findTheme(themeId)) }, [themeId])
 
@@ -158,7 +179,7 @@ export default function App() {
       </div>
     )
   } else if (screen.kind === 'home') {
-    body = <Home catalog={catalog} options={options} onOptions={changeOptions} onStart={startRun} onDaily={startDaily} onEndless={startEndless} daily={loadDaily(today)} dayNumber={dayNumber(today)} stats={stats} />
+    body = <Home catalog={catalog} options={options} onOptions={changeOptions} onStart={startRun} onDaily={startDaily} onEndless={startEndless} onHelp={() => setHelpOpen(true)} daily={loadDaily(today)} dayNumber={dayNumber(today)} stats={stats} />
   } else if (screen.kind === 'play') {
     const { game } = screen
     const index = game.results.length
@@ -205,9 +226,13 @@ export default function App() {
             </span>
             <span>praise<b>play</b></span>
           </button>
-          <ThemePicker value={themeId} onChange={changeTheme} />
+          <div className="top-actions">
+            <button className="icon-button" onClick={() => setHelpOpen(true)} aria-label="How to play (H)" title="How to play (H)">?</button>
+            <ThemePicker value={themeId} onChange={changeTheme} />
+          </div>
         </header>
         {body}
+        {helpOpen && <HelpDialog onClose={closeHelp} />}
         <footer>Made for music that lifts the spirit <span>✦</span> Previews & artwork courtesy of Apple Music</footer>
       </div>
     </>

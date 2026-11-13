@@ -7,6 +7,7 @@ import type { SongResult } from '../lib/storage'
 import { ClipPlayer } from './ClipPlayer'
 import { GuessBox } from './GuessBox'
 import { Confetti, CountUp } from './Fx'
+import { onPauseChange } from '../lib/pause'
 
 type Props = {
   catalog: Catalog
@@ -32,6 +33,16 @@ export function Round({ catalog, song, nextSong, index, total, level, runScore, 
   const [result, setResult] = useState<SongResult | null>(null)
   const [preview, setPreview] = useState<Preview | null | 'loading'>('loading')
   const startedAt = useRef<number | null>(null)
+  const pausedAt = useRef<number | null>(null)
+
+  // Don't count time spent reading Help toward "time to answer".
+  useEffect(() => onPauseChange(
+    () => { pausedAt.current = performance.now() },
+    () => {
+      if (pausedAt.current !== null && startedAt.current !== null) startedAt.current += performance.now() - pausedAt.current
+      pausedAt.current = null
+    },
+  ), [])
   const excluded = useMemo(() => new Set(wrong), [wrong])
   const endless = total === null
 
@@ -138,7 +149,7 @@ export function Round({ catalog, song, nextSong, index, total, level, runScore, 
             </ul>
           )}
           <p className="hint-line">
-            <kbd>Space</kbd> play · <kbd>→</kbd> +1s · type to search
+            <kbd>Space</kbd> play · <kbd>A</kbd> replay · <kbd>D</kbd> +1s · <kbd>/</kbd> search · <kbd>H</kbd> help
           </p>
         </div>
       ) : (
@@ -171,7 +182,10 @@ export function Round({ catalog, song, nextSong, index, total, level, runScore, 
               <strong>{song.title}</strong>
               <span>{song.artist}</span>
               <span className="small">{[loaded?.album, song.year].filter(Boolean).join(' · ')}</span>
-              {loaded?.trackUrl && <a href={loaded.trackUrl} target="_blank" rel="noreferrer">Listen on Apple Music ↗</a>}
+              <span className="listen-links">
+                {loaded?.trackUrl && <a href={loaded.trackUrl} target="_blank" rel="noreferrer">Apple Music ↗</a>}
+                <a className="spotify-link" href={`https://open.spotify.com/search/${encodeURIComponent(`${song.title} ${song.artist}`)}`} target="_blank" rel="noreferrer">Spotify ↗</a>
+              </span>
             </div>
           </div>
           <ClipPlayer preview={preview} startSeconds={0} unlocked={30} autoPlay />

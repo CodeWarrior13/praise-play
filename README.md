@@ -9,8 +9,8 @@ A Christian-music song-guessing game. Each song starts at **0.1 seconds** of aud
 - **Unlocking more:** drag the logarithmic scrubber, tap the 0.1s, 0.5s, 1s and 3s buttons, or press +1s. The current "worth" updates as you go.
 - **Scoring:** 10,000 points at 0.1s, falling steeply at first and reaching 3,000 at the full 30s (`clipWorth` in `src/lib/scoring.ts`). Each wrong guess costs 500, and the song keeps going. Skip reveals the answer and scores 0.
 - **Run options:** Hits / Everything / Deep cuts, any mix of 16 genres, up to 60 artists (or one tap for your Spotify top artists), and an era range with decade shortcuts. A narrow pool is still ranked from easy to hard.
-- **Guessing:** search by song or artist. Results show album covers, and typing an artist's name lists their songs. Start typing anywhere to search; `Space` plays and `→` adds a second on desktop.
-- **After each song:** the cover slides out of a spinning record, the song keeps playing, and you see how much you heard, how long you took, and your wrong guesses. If a preview is ever missing, the game swaps in another song of the same difficulty, with no penalty.
+- **Guessing:** search by song or artist. Results show album covers, and typing an artist's name lists their songs. Start typing anywhere to search; On desktop: `Space` plays, `A`/`←` replays, `D`/`→` adds a second, `/` jumps to search, and `H` opens help (which pauses the game).
+- **After each song:** the cover slides out of a spinning record, with links to the song on Apple Music and Spotify, the song keeps playing, and you see how much you heard, how long you took, and your wrong guesses. If a preview is ever missing, the game swaps in another song of the same difficulty, with no penalty.
 - **End of run:** a per-song breakdown, a shareable emoji summary, and your best/average/fastest stats (stored on the device).
 
 ## Run locally
@@ -21,6 +21,12 @@ Requires Node.js 20 or newer.
 npm install
 npm run dev
 ```
+
+## Hosting on GitHub Pages
+
+Every push to `main` builds the site and publishes it with GitHub Actions (`.github/workflows/deploy.yml`). One-time setup: in the repository's **Settings → Pages**, set **Source** to **GitHub Actions**. The site is then served at `https://codewarrior13.github.io/praise-play/`.
+
+GitHub Pages for a **private** repository needs a paid GitHub plan (Pro, Team or Enterprise). On a free plan, either make the repository public or deploy the same `dist/` build to a host that serves private repos for free, such as Netlify, Vercel or Cloudflare Pages (build command `npm run build`, output folder `dist`).
 
 ## The song catalog
 

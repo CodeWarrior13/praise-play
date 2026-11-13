@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { artUrl, type Catalog, type Song } from '../lib/catalog'
 import { normalize } from '../lib/daily'
+import { isPaused } from '../lib/pause'
 
 type Props = { catalog: Catalog; excluded: Set<string>; onGuess: (song: Song) => void; onSkip: () => void; skipLabel?: string; shake: number }
 
 const MAX_SONG_RESULTS = 8
 const MAX_ARTIST_SONGS = 40
+const SHORTCUT_KEYS = new Set(['a', 'd', 'h'])
 
 /**
  * Search the whole catalog by title or artist. Typing an artist's name lists their
@@ -18,12 +20,19 @@ export function GuessBox({ catalog, excluded, onGuess, onSkip, skipLabel = 'Skip
   const listRef = useRef<HTMLUListElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Start typing anywhere on the page to search, without clicking the box first.
+  // Start typing anywhere to search. A, D and H are game shortcuts, so "/" or Enter
+  // jumps to the box for searches that start with those letters.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null
-      if (event.metaKey || event.ctrlKey || event.altKey || event.key.length !== 1 || event.key === ' ') return
+      if (event.metaKey || event.ctrlKey || event.altKey || isPaused()) return
       if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return
+      if (event.key === '/' || (event.key === 'Enter' && !(target instanceof HTMLButtonElement))) {
+        event.preventDefault()
+        inputRef.current?.focus()
+        return
+      }
+      if (event.key.length !== 1 || event.key === ' ' || SHORTCUT_KEYS.has(event.key.toLowerCase())) return
       inputRef.current?.focus()
     }
     window.addEventListener('keydown', onKey)

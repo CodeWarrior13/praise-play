@@ -13,6 +13,7 @@ type Props = {
   onStart: () => void
   onDaily: () => void
   onEndless: () => void
+  onHelp: () => void
   daily: RunRecord | null
   dayNumber: number
   stats: Stats
@@ -24,9 +25,9 @@ const POPULARITY: { id: Popularity; label: string; hint: string }[] = [
   { id: 'deep', label: 'Deep cuts', hint: 'Album tracks for true fans' },
 ]
 
-export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless, daily, dayNumber, stats }: Props) {
+export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless, onHelp, daily, dayNumber, stats }: Props) {
   // Returning players don't need the rules spelled out every time.
-  const [showHelp, setShowHelp] = useState(() => !loadSetting('seenHelp', false) && stats.runs === 0)
+  const [showHelp] = useState(() => !loadSetting('seenHelp', false) && stats.runs === 0)
   const start = (fn: () => void) => () => { saveSetting('seenHelp', true); fn() }
   const [showOptions, setShowOptions] = useState(false)
   const [artistQuery, setArtistQuery] = useState('')
@@ -197,7 +198,7 @@ export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless,
       </section>
 
       {!showHelp ? (
-        <button className="help-link enter" style={{ animationDelay: '140ms' }} onClick={() => setShowHelp(true)}>How to play &amp; scoring</button>
+        <button className="help-link enter" style={{ animationDelay: '140ms' }} onClick={onHelp}>How to play &amp; scoring <kbd>H</kbd></button>
       ) : (
       <section className="card how enter" style={{ animationDelay: '140ms' }}>
         <h2>How it works</h2>

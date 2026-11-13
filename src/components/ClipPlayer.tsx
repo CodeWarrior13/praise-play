@@ -3,6 +3,7 @@ import type { Preview } from '../lib/preview'
 import { MAX_CLIP, MIN_CLIP, clipWorth, formatPoints, formatSeconds, fromPosition, roundClip, toPosition } from '../lib/scoring'
 import { loadSetting, saveSetting } from '../lib/storage'
 import { CountUp, Equalizer } from './Fx'
+import { isPaused, onPauseChange } from '../lib/pause'
 
 const TICKS = [0.1, 0.5, 1, 3, 10, 30]
 const JUMPS = [0.1, 0.5, 1, 3]
@@ -20,7 +21,7 @@ type Props = {
   autoPlay?: boolean
   /** Called the first time the clip is played, to start the guess timer. */
   onFirstPlay?: () => void
-  /** Space plays, → unlocks one more second, while the search box isn't focused. */
+  /** Space plays, → / D unlocks one more second, ← / A replays, while the search box isn't focused. */
   hotkeys?: boolean
   /** The audio file failed to load or decode. */
   onAudioError?: () => void
@@ -53,9 +54,12 @@ export function ClipPlayer({ preview, startSeconds, unlocked, onUnlock, penalty 
 
   useEffect(() => stop, [stop])
 
+  // Help (or any overlay) opened: stop the audio.
+  useEffect(() => onPauseChange(stop), [stop])
+
   async function play(seconds = limit) {
     const audio = audioRef.current
-    if (!audio) return
+    if (!audio || isPaused()) return
     if (!played.current) { played.current = true; onFirstPlay?.() }
     cancelAnimationFrame(frame.current)
     audio.currentTime = startSeconds
@@ -92,14 +96,16 @@ export function ClipPlayer({ preview, startSeconds, unlocked, onUnlock, penalty 
   useEffect(() => {
     if (!hotkeys) return
     const onKey = (event: KeyboardEvent) => {
-      if (typingInField(event.target) || event.metaKey || event.ctrlKey || event.altKey) return
+      if (typingInField(event.target) || event.metaKey || event.ctrlKey || event.altKey || isPaused()) return
       const { play, stop, unlock, playing, unlocked } = latest.current
-      if (event.key === ' ') {
+      const key = event.key.toLowerCase()
+      if (key === ' ') {
         if (event.target instanceof HTMLButtonElement) return // Space already presses the focused button.
         event.preventDefault()
         if (playing) stop(); else play()
       }
-      else if (event.key === 'ArrowRight') { event.preventDefault(); unlock(Math.min(MAX_CLIP, unlocked + 1)) }
+      else if (key === 'arrowright' || key === 'd') { event.preventDefault(); unlock(Math.min(MAX_CLIP, unlocked + 1)) }
+      else if (key === 'arrowleft' || key === 'a') { event.preventDefault(); play() }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
