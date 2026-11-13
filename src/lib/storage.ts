@@ -1,25 +1,19 @@
-import { MAX_ATTEMPTS } from './daily'
+import { defaultOptions, type RunOptions } from './run'
 
-export type Attempt = { kind: 'skip' } | { kind: 'guess'; songId: string; correct: boolean }
-
-export type Round = {
+export type SongResult = {
   songId: string
-  attempts: Attempt[]
-  status: 'playing' | 'won' | 'lost'
+  /** Clip length unlocked when the song was named (or skipped). */
+  seconds: number
+  wrongGuesses: number
+  points: number
+  outcome: 'named' | 'skipped'
 }
 
-export type Stats = {
-  played: number
-  wins: number
-  currentStreak: number
-  maxStreak: number
-  /** Index 0–5: solved on that attempt. Index 6: not solved. */
-  distribution: number[]
-  lastPlayed?: string
-  lastWon?: string
-}
+export type RunRecord = { total: number; results: SongResult[] }
 
-const PREFIX = 'praise-play:v2'
+export type Stats = { runs: number; totalPoints: number; best: number; songsNamed: number; fastest?: number }
+
+const PREFIX = 'praise-play:v3'
 
 function read<T>(key: string): T | null {
   try {
@@ -34,44 +28,31 @@ function write(key: string, value: unknown) {
   try {
     localStorage.setItem(`${PREFIX}:${key}`, JSON.stringify(value))
   } catch {
-    // Storage can be unavailable (private mode); the game still works for this visit.
+    // Storage may be unavailable (private browsing); the game still works for this visit.
   }
 }
 
-export const loadRound = (modeId: string, dateKey: string) => read<Round>(`round:${modeId}:${dateKey}`)
-export const saveRound = (modeId: string, dateKey: string, round: Round) => write(`round:${modeId}:${dateKey}`, round)
+export const loadOptions = (): RunOptions => ({ ...defaultOptions, ...read<Partial<RunOptions>>('options') })
+export const saveOptions = (options: RunOptions) => write('options', options)
 
-export function emptyStats(): Stats {
-  return { played: 0, wins: 0, currentStreak: 0, maxStreak: 0, distribution: Array(MAX_ATTEMPTS + 1).fill(0) }
-}
+export const loadStats = (): Stats => read<Stats>('stats') ?? { runs: 0, totalPoints: 0, best: 0, songsNamed: 0 }
 
-export const loadStats = (modeId: string) => read<Stats>(`stats:${modeId}`) ?? emptyStats()
-
-function previousDay(dateKey: string): string {
-  const [y, m, d] = dateKey.split('-').map(Number)
-  const date = new Date(y, m - 1, d - 1)
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
-
-/** Records a finished daily round once. */
-export function recordResult(modeId: string, dateKey: string, round: Round): Stats {
-  const stats = loadStats(modeId)
-  if (stats.lastPlayed === dateKey) return stats
-  stats.played += 1
-  stats.lastPlayed = dateKey
-  if (round.status === 'won') {
-    stats.wins += 1
-    stats.currentStreak = stats.lastWon === previousDay(dateKey) ? stats.currentStreak + 1 : 1
-    stats.maxStreak = Math.max(stats.maxStreak, stats.currentStreak)
-    stats.lastWon = dateKey
-    stats.distribution[round.attempts.length - 1] += 1
-  } else {
-    stats.currentStreak = 0
-    stats.distribution[MAX_ATTEMPTS] += 1
+export function recordRun(run: RunRecord): Stats {
+  const stats = loadStats()
+  stats.runs += 1
+  stats.totalPoints += run.total
+  stats.best = Math.max(stats.best, run.total)
+  for (const result of run.results) {
+    if (result.outcome !== 'named') continue
+    stats.songsNamed += 1
+    stats.fastest = Math.min(stats.fastest ?? Infinity, result.seconds)
   }
-  write(`stats:${modeId}`, stats)
+  write('stats', stats)
   return stats
 }
+
+export const loadDaily = (dateKey: string) => read<RunRecord>(`daily:${dateKey}`)
+export const saveDaily = (dateKey: string, run: RunRecord) => write(`daily:${dateKey}`, run)
 
 export const loadSetting = <T,>(key: string, fallback: T): T => read<T>(`setting:${key}`) ?? fallback
 export const saveSetting = (key: string, value: unknown) => write(`setting:${key}`, value)

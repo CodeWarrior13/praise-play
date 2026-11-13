@@ -2,18 +2,11 @@
 
 ## Round loop
 
-The game can use a staged-reveal loop: play a short segment, allow a guess or skip, then unlock a longer segment. The game currently uses 0.5, 1, 2, 4, 8, and 16 seconds (six tries), configured in `src/lib/daily.ts`. Tune these values only after choosing an audio provider that permits this use and supports reliable playback/seeking. Very tiny clips (for example 0.1 seconds) are difficult to hear, may be rounded by browsers, and should not be assumed to work consistently.
-
-Suggested round rules:
-
-- One song per daily puzzle; optional genre mode can filter the eligible catalog before choosing the daily song.
-- A wrong guess or an explicit skip advances one stage. Replaying the currently unlocked segment does not.
-- Guessing remains unlimited within the current stage; this keeps the game accessible and avoids punishing spelling/selection mistakes.
-- The answer is shown after a correct guess or the final reveal.
-- Score can be based on the stage at which the answer is found; keep scoring separate from the puzzle-selection logic.
-- Store local progress by date and game mode. For cross-device consistency, the puzzle assignment must eventually come from a server or a shared seed/catalog version.
-
-These are original design recommendations, not a claim about the target site's current rules. Don't copy its branding, source code, catalog, or recordings.
+- A run is 5 songs. The filtered pool is ranked by `popularity` and split into 5 bands, and one song is drawn from each band, so runs go from easy to hard.
+- Each song starts with 0.1s unlocked. The player can unlock more at any time, up to the full 30-second preview, using a logarithmic scrubber or the jump buttons. Unlocking only goes forward.
+- A song is worth `clipWorth(unlocked)`: 10,000 at 0.1s, falling on a convex curve against log-time to 3,000 at 30s. Each wrong guess costs 500 (minimum 0). Skip scores 0.
+- Guesses come from the whole catalog, not just the filtered pool, so the filters don't give the answer away. A recording with the same title also counts as correct.
+- Today's run uses the same seed for everyone, based on the local date.
 
 ## Genre approach
 
