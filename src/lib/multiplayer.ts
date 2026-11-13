@@ -10,27 +10,49 @@
 import type { DataConnection, Peer as PeerType, PeerOptions } from 'peerjs'
 import type { Song } from './catalog'
 import { getPreview, prefetchPreviews } from './preview'
-import { buildRun } from './run'
+import { buildRun, endlessSong } from './run'
 import { songPoints } from './scoring'
 
 export const MAX_PLAYERS = 30
 export const ROUND_MS = 45_000
+export const ENDLESS_LIVES = 3
 const GRACE_MS = 1_500
 const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const ID_PREFIX = 'praiseplay-room-'
 
 export type Outcome = 'named' | 'skipped' | 'timeout'
 
-export type PlayerView = { id: string; name: string; score: number; host: boolean; connected: boolean }
+/** lives is only set in Endless games. */
+export type PlayerView = { id: string; name: string; score: number; host: boolean; connected: boolean; lives?: number }
 
-export type RoundResult = { id: string; name: string; outcome: Outcome; points: number; seconds: number; wrong: number; elapsed: number }
+export type RoundResult = { id: string; name: string; outcome: Outcome; points: number; seconds: number; wrong: number; elapsed: number; lostLife?: boolean; out?: boolean; spectating?: boolean }
 
-export type Settings = { rounds: number }
+export type GameMode = 'set' | 'endless'
+export type Difficulty = 'mixed' | 'easy' | 'hard' | 'extreme' | 'impossible'
+export type Settings = { rounds: number; mode: GameMode; difficulty: Difficulty }
+
+/** Which slice of the pool (ranked best-known first) each difficulty draws from. */
+export const DIFFICULTIES: { id: Difficulty; label: string; hint: string; range: [number, number] }[] = [
+  { id: 'mixed', label: 'Mixed', hint: 'Starts with hits, ends with deep cuts', range: [0, 1] },
+  { id: 'easy', label: 'Easy', hint: 'The biggest hits only', range: [0, 0.08] },
+  { id: 'hard', label: 'Hard', hint: 'Well-known, but not the top hits', range: [0.08, 0.3] },
+  { id: 'extreme', label: 'Extreme', hint: 'Album tracks and B-sides', range: [0.3, 0.65] },
+  { id: 'impossible', label: 'Impossible', hint: 'The deepest cuts in the catalog', range: [0.65, 1] },
+]
+
+export function poolForDifficulty(pool: Song[], difficulty: Difficulty): Song[] {
+  const [from, to] = DIFFICULTIES.find((d) => d.id === difficulty)?.range ?? [0, 1]
+  if (from === 0 && to === 1) return pool
+  const ranked = [...pool].sort((a, b) => b.popularity - a.popularity || a.trackId - b.trackId)
+  const slice = ranked.slice(Math.floor(from * ranked.length), Math.ceil(to * ranked.length))
+  return slice.length >= 5 ? slice : ranked
+}
 
 /** Everything the host tells players. The host's own screen renders the same messages. */
 export type ServerMessage =
   | { t: 'welcome'; you: string; code: string }
   | { t: 'lobby'; players: PlayerView[]; settings: Settings; phase: 'lobby' | 'playing' | 'ended' }
+  /** total is 0 in Endless. */
   | { t: 'round'; index: number; total: number; songId: string; nextSongId?: string; durationMs: number }
   | { t: 'status'; answered: string[] }
   | { t: 'reveal'; index: number; total: number; songId: string; results: RoundResult[]; standings: PlayerView[]; last: boolean }
@@ -93,7 +115,9 @@ export class HostRoom {
   private peer: PeerType
   private conns = new Map<string, DataConnection>()
   private players = new Map<string, PlayerView>()
-  private settings: Settings = { rounds: 5 }
+  private settings: Settings = { rounds: 5, mode: 'set', difficulty: 'mixed' }
+  private pool: Song[] = []
+  private advancing = false
   private phase: 'lobby' | 'playing' | 'ended' = 'lobby'
   private songs: Song[] = []
   private index = -1
@@ -163,14 +187,15 @@ export class HostRoom {
     if (message.t === 'hello') {
       const existing = this.players.get(id)
       const name = this.uniqueName(cleanName(message.name), id)
-      this.players.set(id, { id, name, score: existing?.score ?? 0, host: false, connected: true })
+      const lives = this.endless && this.phase === 'playing' ? existing?.lives ?? ENDLESS_LIVES : undefined
+      this.players.set(id, { id, name, score: existing?.score ?? 0, host: false, connected: true, lives })
       this.sendTo(id, { t: 'welcome', you: id, code: this.code })
       this.sendLobby()
       // Joining mid-game: drop straight into the current song.
       if (this.phase === 'playing' && this.roundOpen) {
         const song = this.songs[this.index]
         const left = Math.max(5_000, ROUND_MS - (performance.now() - this.roundStarted))
-        this.sendTo(id, { t: 'round', index: this.index, total: this.songs.length, songId: song.id, nextSongId: this.songs[this.index + 1]?.id, durationMs: left })
+        this.sendTo(id, { t: 'round', index: this.index, total: this.endless ? 0 : this.songs.length, songId: song.id, nextSongId: this.songs[this.index + 1]?.id, durationMs: left })
       }
     } else if (message.t === 'answer') {
       this.submit(id, message)
@@ -195,13 +220,44 @@ export class HostRoom {
     this.broadcast({ t: 'lobby', players: this.standings(), settings: this.settings, phase: this.phase })
   }
 
-  setRounds(rounds: number) {
-    this.settings = { rounds }
+  setSettings(patch: Partial<Settings>) {
+    this.settings = { ...this.settings, ...patch }
     this.sendLobby()
   }
 
+  private get endless() { return this.settings.mode === 'endless' }
+
+  /** Players who still need to answer this round (in Endless, those with lives left). */
+  private active(player: PlayerView) {
+    return player.connected && (!this.endless || (player.lives ?? 0) > 0)
+  }
+
+  /** Next Endless song: harder every few songs, never repeated, with audio confirmed. */
+  private async pickEndlessSong(): Promise<Song | undefined> {
+    const played = new Set(this.songs.map((s) => s.id))
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const song = endlessSong(this.pool, this.songs.length, played)
+      if (!song) return undefined
+      if (await getPreview(song)) return song
+      played.add(song.id)
+    }
+    return undefined
+  }
+
   /** Picks the songs (easy → hard), makes sure each has playable audio, and starts round 1. */
-  async start(pool: Song[]) {
+  async start(fullPool: Song[]) {
+    const pool = poolForDifficulty(fullPool, this.settings.difficulty)
+    this.pool = pool
+    for (const [id, player] of this.players) if (!player.connected) this.players.delete(id)
+    for (const player of this.players.values()) { player.score = 0; player.lives = this.endless ? ENDLESS_LIVES : undefined }
+    if (this.endless) {
+      this.songs = []
+      this.phase = 'playing'
+      this.index = -1
+      this.sendLobby()
+      await this.nextRound()
+      return
+    }
     let songs = buildRun(pool, Math.random, this.settings.rounds)
     prefetchPreviews(songs)
     const previews = await Promise.all(songs.map((song) => getPreview(song)))
@@ -216,29 +272,34 @@ export class HostRoom {
       return song
     }))
     this.songs = songs
-    for (const player of this.players.values()) player.score = 0
-    for (const [id, player] of this.players) if (!player.connected) this.players.delete(id)
     this.phase = 'playing'
     this.index = -1
     this.sendLobby()
     this.nextRound()
   }
 
-  nextRound() {
-    if (this.roundOpen) return
-    if (this.index >= this.songs.length - 1) { this.finish(); return }
+  async nextRound() {
+    if (this.roundOpen || this.advancing) return
+    if (this.endless) {
+      this.advancing = true
+      const song = await this.pickEndlessSong()
+      this.advancing = false
+      if (!song) { this.finish(); return }
+      this.songs.push(song)
+    } else if (this.index >= this.songs.length - 1) { this.finish(); return }
     this.index += 1
     this.answers = new Map()
     this.roundOpen = true
     this.roundStarted = performance.now()
     const song = this.songs[this.index]
-    this.broadcast({ t: 'round', index: this.index, total: this.songs.length, songId: song.id, nextSongId: this.songs[this.index + 1]?.id, durationMs: ROUND_MS })
+    this.broadcast({ t: 'round', index: this.index, total: this.endless ? 0 : this.songs.length, songId: song.id, nextSongId: this.songs[this.index + 1]?.id, durationMs: ROUND_MS })
     window.clearTimeout(this.roundTimer)
     this.roundTimer = window.setTimeout(() => this.endRound(), ROUND_MS + GRACE_MS)
   }
 
   submit(id: string, answer: Omit<Answer, 'points'> & { index: number }) {
-    if (!this.roundOpen || answer.index !== this.index || this.answers.has(id) || !this.players.has(id)) return
+    const player = this.players.get(id)
+    if (!this.roundOpen || answer.index !== this.index || this.answers.has(id) || !player || !this.active(player)) return
     const seconds = Math.min(30, Math.max(0.1, Number(answer.seconds) || 30))
     const wrong = Math.max(0, Math.floor(Number(answer.wrong) || 0))
     const points = answer.outcome === 'named' ? songPoints(seconds, wrong) : 0
@@ -249,7 +310,7 @@ export class HostRoom {
 
   private checkRoundDone() {
     if (!this.roundOpen) return
-    const waiting = [...this.players.values()].filter((p) => p.connected && !this.answers.has(p.id))
+    const waiting = [...this.players.values()].filter((p) => this.active(p) && !this.answers.has(p.id))
     if (waiting.length === 0) this.endRound()
   }
 
@@ -259,13 +320,23 @@ export class HostRoom {
     window.clearTimeout(this.roundTimer)
     const results: RoundResult[] = []
     for (const player of this.players.values()) {
+      if (this.endless && (player.lives ?? 0) <= 0 && !this.answers.has(player.id)) {
+        results.push({ id: player.id, name: player.name, outcome: 'skipped', points: 0, seconds: 0, wrong: 0, elapsed: 0, spectating: true })
+        continue
+      }
       const answer = this.answers.get(player.id) ?? { outcome: 'timeout' as const, seconds: 30, wrong: 0, elapsed: ROUND_MS / 1000, points: 0 }
       player.score += answer.points
-      results.push({ id: player.id, name: player.name, ...answer })
+      let lostLife = false
+      if (this.endless && answer.outcome !== 'named' && player.connected) {
+        player.lives = Math.max(0, (player.lives ?? 0) - 1)
+        lostLife = true
+      }
+      results.push({ id: player.id, name: player.name, ...answer, lostLife, out: this.endless && lostLife && player.lives === 0 })
     }
-    results.sort((a, b) => b.points - a.points || a.elapsed - b.elapsed)
-    const last = this.index >= this.songs.length - 1
-    this.broadcast({ t: 'reveal', index: this.index, total: this.songs.length, songId: this.songs[this.index].id, results, standings: this.standings(), last })
+    results.sort((a, b) => Number(Boolean(a.spectating)) - Number(Boolean(b.spectating)) || b.points - a.points || a.elapsed - b.elapsed)
+    const stillIn = [...this.players.values()].filter((p) => this.active(p)).length
+    const last = this.endless ? stillIn === 0 : this.index >= this.songs.length - 1
+    this.broadcast({ t: 'reveal', index: this.index, total: this.endless ? 0 : this.songs.length, songId: this.songs[this.index].id, results, standings: this.standings(), last })
   }
 
   finish() {
@@ -279,7 +350,7 @@ export class HostRoom {
   backToLobby() {
     this.phase = 'lobby'
     this.index = -1
-    for (const player of this.players.values()) player.score = 0
+    for (const player of this.players.values()) { player.score = 0; player.lives = undefined }
     for (const [id, player] of this.players) if (!player.connected) this.players.delete(id)
     this.sendLobby()
   }

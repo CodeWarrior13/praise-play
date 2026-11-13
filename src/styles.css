@@ -498,3 +498,38 @@ body[data-overlay] .page > *:not(.overlay) { filter: saturate(.7); transition: f
 .podium .p1 .step { height: 110px; box-shadow: 0 16px 40px -14px var(--accent-b); }
 .podium .p2 .step { height: 80px; opacity: .85; }
 .podium .p3 .step { height: 60px; opacity: .7; }
+
+/* ---------- Multiplayer: endless + sharing ---------- */
+.segmented.five { grid-template-columns: repeat(5, 1fr); margin-bottom: 14px; }
+.segmented.five button { display: grid; gap: 0; font-size: 16px; }
+.segmented.five small { font-size: 10px; letter-spacing: .3px; }
+.mp-mode-note { text-align: center; font-weight: 800; margin: 0; color: var(--accent); }
+.out-banner { margin: 0; padding: 10px 14px; border-radius: 14px; background: color-mix(in srgb, var(--bad) 12%, transparent); border: 1px solid color-mix(in srgb, var(--bad) 35%, transparent); font-weight: 700; font-size: 14px; text-align: center; animation: popIn .5s var(--spring) both; }
+.life-lost { color: var(--bad); font-weight: 800; }
+.host-controls { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+.host-controls > :only-child { grid-column: 1 / -1; }
+.mini-lives { color: var(--bad); font-size: 12px; letter-spacing: 1px; font-weight: 800; }
+
+.share-panel { display: grid; justify-items: center; gap: 10px; width: 100%; }
+.share-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.share-buttons .on { border-color: var(--accent); color: var(--accent); }
+.share-link { font-size: 12px; color: var(--faint); font-weight: 600; word-break: break-all; text-align: center; }
+.qr { display: grid; justify-items: center; gap: 8px; animation: popIn .45s var(--spring) both; }
+.qr-code { width: 180px; height: 180px; padding: 10px; border-radius: 18px; background: #fff; box-shadow: 0 16px 40px -14px rgba(0,0,0,.6); }
+.qr-code svg { width: 100%; height: 100%; display: block; }
+.qr span { font-size: 12px; color: var(--muted); font-weight: 700; }
+@media (max-width: 420px) { .room-code i { width: 40px; height: 50px; font-size: 24px; } .segmented.five button { font-size: 14px; padding: 8px 2px; } }
+
+/* ---------- QR dropdown + difficulty ---------- */
+.qr-toggle { border: 0; background: none; color: var(--muted); font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 8px; transition: color .2s; }
+.qr-toggle:hover { color: var(--text); }
+.qr-toggle span { display: inline-block; transition: transform .35s var(--spring); }
+.qr-toggle.open span { transform: rotate(180deg); }
+.qr-drop { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .4s var(--ease); width: 100%; }
+.qr-drop.open { grid-template-rows: 1fr; }
+.qr-drop-inner { overflow: hidden; display: grid; justify-items: center; }
+.qr-drop .qr { padding: 4px 0 6px; }
+.diff-hint { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--muted); font-size: 12px; }
+.segmented.difficulty button { font-size: 12px; padding: 10px 2px; }
+.segmented.difficulty .diff-extreme.active { background: linear-gradient(110deg, #ff8a3d, #ff3d5a); color: #fff; }
+.segmented.difficulty .diff-impossible.active { background: linear-gradient(110deg, #b13dff, #ff3d8b); color: #fff; }

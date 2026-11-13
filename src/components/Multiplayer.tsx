@@ -5,7 +5,10 @@ import { getPreview, prefetchPreviews, type Preview } from '../lib/preview'
 import { filterSongs, type RunOptions } from '../lib/run'
 import { MIN_CLIP, WRONG_GUESS_PENALTY, formatPoints, formatSeconds, songPoints } from '../lib/scoring'
 import { loadSetting, saveSetting } from '../lib/storage'
-import { ClientRoom, HostRoom, MAX_PLAYERS, cleanCode, cleanName, type Outcome, type PlayerView, type RoundResult, type ServerMessage } from '../lib/multiplayer'
+import { ClientRoom, DIFFICULTIES, ENDLESS_LIVES, HostRoom, MAX_PLAYERS, cleanCode, cleanName, type Difficulty, type GameMode, type Outcome, type PlayerView, type RoundResult, type ServerMessage } from '../lib/multiplayer'
+import { endlessLevel } from '../lib/run'
+import { DIFFICULTY } from '../lib/scoring'
+import qrcode from 'qrcode-generator'
 import { ClipPlayer } from './ClipPlayer'
 import { GuessBox } from './GuessBox'
 import { ListenLinks } from './ListenLinks'
@@ -32,6 +35,8 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
   const [roomCode, setRoomCode] = useState('')
   const [players, setPlayers] = useState<PlayerView[]>([])
   const [rounds, setRounds] = useState(5)
+  const [mode, setMode] = useState<GameMode>('set')
+  const [difficulty, setDifficulty] = useState<Difficulty>('mixed')
   const [answered, setAnswered] = useState<string[]>([])
   const [starting, setStarting] = useState(false)
   const host = useRef<HostRoom | null>(null)
@@ -45,6 +50,8 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
       case 'lobby':
         setPlayers(message.players)
         setRounds(message.settings.rounds)
+        setMode(message.settings.mode)
+        setDifficulty(message.settings.difficulty)
         if (message.phase === 'lobby') setView((v) => (v.phase === 'end' || v.phase === 'connecting' || v.phase === 'lobby' ? { phase: 'lobby' } : v))
         break
       case 'round':
@@ -159,7 +166,7 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
         <div className="room-code">
           <span>Room code</span>
           <strong>{roomCode.split('').map((c, i) => <i key={i} style={{ animationDelay: `${i * 60}ms` }}>{c}</i>)}</strong>
-          <button className="ghost small-btn" onClick={() => copy(inviteLink)}>Copy invite link</button>
+          <SharePanel code={roomCode} link={inviteLink} />
         </div>
         <div className="mp-players-head"><span>Players</span><span>{players.filter((p) => p.connected).length}/{MAX_PLAYERS}</span></div>
         <ul className="mp-players">
@@ -173,17 +180,29 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
         </ul>
         {isHost ? (
           <>
-            <div className="option-label"><span>Songs per game</span></div>
-            <div className="segmented four">
-              {ROUND_CHOICES.map((n) => <button key={n} className={rounds === n ? 'active' : ''} onClick={() => host.current?.setRounds(n)}>{n}</button>)}
+            <div className="option-label"><span>Game</span></div>
+            <div className="segmented five">
+              {ROUND_CHOICES.map((n) => <button key={n} className={mode === 'set' && rounds === n ? 'active' : ''} onClick={() => host.current?.setSettings({ rounds: n, mode: 'set' })}>{n}<small>songs</small></button>)}
+              <button className={mode === 'endless' ? 'active' : ''} onClick={() => host.current?.setSettings({ mode: 'endless' })}>∞<small>Endless</small></button>
+            </div>
+            <div className="option-label"><span>Difficulty</span><span className="diff-hint">{DIFFICULTIES.find((d) => d.id === difficulty)?.hint}</span></div>
+            <div className="segmented five difficulty">
+              {DIFFICULTIES.map((d) => (
+                <button key={d.id} className={`${difficulty === d.id ? 'active' : ''} diff-${d.id}`} onClick={() => host.current?.setSettings({ difficulty: d.id })}>{d.label}</button>
+              ))}
             </div>
             <button className="primary big wide shine" onClick={start} disabled={starting || !pool.length}>
               {starting ? <><span className="spinner small" /> Loading songs…</> : `Start game · ${players.filter((p) => p.connected).length} player${players.length === 1 ? '' : 's'}`}
             </button>
-            <p className="muted small">Each song lasts 45 seconds. Everyone hears the same song; the less you need to hear, the more it’s worth.</p>
+            <p className="muted small">{mode === 'endless'
+              ? `Endless: everyone gets ${ENDLESS_LIVES} lives. Skipping or running out of time costs one. Songs get harder until everyone’s out.`
+              : 'Each song lasts 45 seconds. Everyone hears the same song; the less you need to hear, the more it’s worth.'}</p>
           </>
         ) : (
-          <p className="mp-status"><span className="spinner small" /> Waiting for the host to start…</p>
+          <>
+            <p className="mp-mode-note">{mode === 'endless' ? `∞ Endless · ${ENDLESS_LIVES} lives each` : `${rounds} songs`} · {DIFFICULTIES.find((d) => d.id === difficulty)?.label}</p>
+            <p className="mp-status"><span className="spinner small" /> Waiting for the host to start…</p>
+          </>
         )}
         {error && <p className="notice">{error}</p>}
         <button className="text-button quit" onClick={leave}>Leave room</button>
@@ -206,6 +225,7 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
         players={players}
         answered={answered}
         me={me}
+        lives={players.find((p) => p.id === me)?.lives}
         onAnswer={(outcome, seconds, wrong, elapsed) => submit(view.index, outcome, seconds, wrong, elapsed)}
         onLeave={leave}
       />
@@ -217,7 +237,8 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
     const mine = view.results.find((r) => r.id === me)
     return (
       <section className="card mp reveal-mp enter">
-        <div className="round-meta"><span>Song {view.index + 1} of {view.total}</span><span className="run-score">{mine ? `+${formatPoints(mine.points)}` : ''}</span></div>
+        <div className="round-meta"><span>Song {view.index + 1}{view.total ? ` of ${view.total}` : ' · Endless'}</span><span className="run-score">{mine && !mine.spectating ? `+${formatPoints(mine.points)}` : ''}</span></div>
+        {mine?.out && <p className="out-banner">💔 You’re out of lives. Keep watching to see who lasts longest!</p>}
         {mine?.outcome === 'named' && <Confetti count={36} />}
         {song && <RevealCard song={song} />}
         <h3 className="mp-h3">This song</h3>
@@ -226,7 +247,7 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
             <li key={r.id} className={r.id === me ? 'me' : ''} style={{ animationDelay: `${150 + i * 50}ms` }}>
               <span className="avatar" style={{ '--h': hue(r.name) } as React.CSSProperties}>{r.name.slice(0, 1).toUpperCase()}</span>
               <span className="mp-name">{r.name}</span>
-              <span className="mp-detail">{r.outcome === 'named' ? `${formatSeconds(r.seconds)}${r.wrong ? ` · ${r.wrong}✕` : ''} · ${r.elapsed}s` : r.outcome === 'skipped' ? 'skipped' : 'out of time'}</span>
+              <span className="mp-detail">{r.spectating ? 'out' : r.outcome === 'named' ? `${formatSeconds(r.seconds)}${r.wrong ? ` · ${r.wrong}✕` : ''} · ${r.elapsed}s` : r.outcome === 'skipped' ? 'skipped' : 'out of time'}{r.lostLife && <span className="life-lost">{r.out ? ' · OUT' : ' · −♥'}</span>}</span>
               <strong className={r.points ? 'pos' : ''}>{r.points ? `+${formatPoints(r.points)}` : '—'}</strong>
             </li>
           ))}
@@ -234,9 +255,12 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
         <h3 className="mp-h3">Leaderboard</h3>
         <Standings players={players} me={me} compact />
         {isHost ? (
-          <button className="primary big wide" onClick={() => (view.last ? host.current?.finish() : host.current?.nextRound())} autoFocus>
-            {view.last ? 'Final results' : 'Next song →'}
-          </button>
+          <div className="host-controls">
+            <button className="primary big" onClick={() => (view.last ? host.current?.finish() : host.current?.nextRound())} autoFocus>
+              {view.last ? 'Final results' : 'Next song →'}
+            </button>
+            {!view.total && !view.last && <button className="ghost big" onClick={() => host.current?.finish()}>End game</button>}
+          </div>
         ) : (
           <p className="mp-status"><span className="spinner small" /> Waiting for the host…</p>
         )}
@@ -273,9 +297,9 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
 
 /* -------------------------------------------------------------- pieces */
 
-function MultiRound({ catalog, song, nextSong, index, total, endsAt, players, answered, me, onAnswer, onLeave }: {
+function MultiRound({ catalog, song, nextSong, index, total, endsAt, players, answered, me, lives, onAnswer, onLeave }: {
   catalog: Catalog; song: Song; nextSong?: Song; index: number; total: number; endsAt: number
-  players: PlayerView[]; answered: string[]; me: string
+  players: PlayerView[]; answered: string[]; me: string; lives?: number
   onAnswer: (outcome: Outcome, seconds: number, wrong: number, elapsed: number) => void; onLeave: () => void
 }) {
   const [unlocked, setUnlocked] = useState(MIN_CLIP)
@@ -286,6 +310,8 @@ function MultiRound({ catalog, song, nextSong, index, total, endsAt, players, an
   const startedAt = useRef(performance.now())
   const excluded = useMemo(() => new Set(wrong), [wrong])
   const total_ms = useRef(Math.max(1, endsAt - performance.now()))
+  const spectatingRef = useRef(false)
+  spectatingRef.current = total === 0 && (lives ?? 0) <= 0
 
   useEffect(() => {
     let live = true
@@ -306,7 +332,7 @@ function MultiRound({ catalog, song, nextSong, index, total, endsAt, players, an
     const timer = window.setInterval(() => {
       const remaining = Math.max(0, endsAt - performance.now())
       setLeft(remaining)
-      if (remaining <= 0) { window.clearInterval(timer); finish('timeout') }
+      if (remaining <= 0) { window.clearInterval(timer); if (!spectatingRef.current) finish('timeout') }
     }, 200)
     return () => window.clearInterval(timer)
   }, [endsAt, finish])
@@ -316,26 +342,40 @@ function MultiRound({ catalog, song, nextSong, index, total, endsAt, players, an
     else setWrong((list) => [...list, choice.id])
   }
 
-  const connected = players.filter((p) => p.connected)
+  const endless = total === 0
+  const spectating = endless && (lives ?? 0) <= 0
+  const connected = players.filter((p) => p.connected && (!endless || (p.lives ?? 0) > 0))
   const ratio = left / total_ms.current
   return (
     <section className="card round mp enter">
       <div className="round-head">
-        <div className="steps" aria-hidden="true" style={{ gridTemplateColumns: `repeat(${Math.min(total, 20)}, 1fr)` }}>
-          {Array.from({ length: total }, (_, i) => <span key={i} className={i < index ? 'done' : i === index ? 'now' : ''} />)}
-        </div>
+        {endless ? (
+          <div className="lives">
+            {Array.from({ length: ENDLESS_LIVES }, (_, i) => <span key={i} className={i < (lives ?? 0) ? 'heart' : 'heart lost'} aria-hidden="true">♥</span>)}
+            <span className="endless-tag">Endless</span>
+          </div>
+        ) : (
+          <div className="steps" aria-hidden="true" style={{ gridTemplateColumns: `repeat(${Math.min(total, 20)}, 1fr)` }}>
+            {Array.from({ length: total }, (_, i) => <span key={i} className={i < index ? 'done' : i === index ? 'now' : ''} />)}
+          </div>
+        )}
         <div className="round-meta">
-          <span>Song {index + 1} of {total}</span>
+          <span>Song {index + 1}{endless ? <> <span className={`badge d${endlessLevel(index)}`}>{DIFFICULTY[endlessLevel(index)]}</span></> : ` of ${total}`}</span>
           <span className={`mp-clock${left < 10_000 ? ' hurry' : ''}`}>{Math.ceil(left / 1000)}s</span>
         </div>
         <div className="time-bar"><span style={{ transform: `scaleX(${ratio})` }} /></div>
       </div>
 
-      {!done ? (
+      {spectating ? (
+        <div className="locked-in skipped">
+          <strong>Spectating</strong>
+          <span>You’re out of lives. The answer shows when the round ends.</span>
+        </div>
+      ) : !done ? (
         <div className="round-body">
           <ClipPlayer key={song.id} preview={preview} startSeconds={0} unlocked={unlocked} onUnlock={setUnlocked} penalty={wrong.length * WRONG_GUESS_PENALTY} hotkeys onAudioError={() => setPreview(null)} />
           {preview === null && <p className="notice">This song’s audio didn’t load for you. Skip it; you won’t be the only one.</p>}
-          <GuessBox catalog={catalog} excluded={excluded} onGuess={guess} onSkip={() => finish('skipped')} shake={wrong.length} />
+          <GuessBox catalog={catalog} excluded={excluded} onGuess={guess} onSkip={() => finish('skipped')} skipLabel={endless ? 'Skip −♥' : 'Skip'} shake={wrong.length} />
           {wrong.length > 0 && (
             <ul className="wrong-list">
               {wrong.map((id) => {
@@ -349,7 +389,7 @@ function MultiRound({ catalog, song, nextSong, index, total, endsAt, players, an
         <div className={`locked-in ${done.outcome}`}>
           {done.outcome === 'named' && <Confetti count={30} />}
           <strong>{done.outcome === 'named' ? <>+<CountUp value={done.points} /></> : done.outcome === 'skipped' ? 'Skipped' : 'Out of time'}</strong>
-          <span>{done.outcome === 'named' ? 'Locked in! Keep it quiet until everyone’s done.' : 'The answer is revealed when the round ends.'}</span>
+          <span>{done.outcome === 'named' ? 'Locked in! Keep it quiet until everyone’s done.' : endless ? `That costs a life. The answer is revealed when the round ends.` : 'The answer is revealed when the round ends.'}</span>
         </div>
       )}
 
@@ -401,6 +441,7 @@ function Standings({ players, me, compact = false }: { players: PlayerView[]; me
           <span className="rank">{i + 1}</span>
           <span className="avatar" style={{ '--h': hue(p.name) } as React.CSSProperties}>{p.name.slice(0, 1).toUpperCase()}</span>
           <span className="mp-name">{p.name}{!p.connected && ' (left)'}</span>
+          {p.lives !== undefined && <span className="mini-lives" aria-label={`${p.lives} lives`}>{p.lives > 0 ? '♥'.repeat(p.lives) : 'out'}</span>}
           <strong><CountUp value={p.score} /></strong>
         </li>
       ))}
@@ -416,6 +457,56 @@ function hue(name: string): number {
   return h
 }
 
-function copy(text: string) {
-  navigator.clipboard?.writeText(text).catch(() => window.prompt('Copy this invite link:', text))
+async function copy(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    window.prompt('Copy this:', text)
+    return false
+  }
+}
+
+/** Ways to get friends in: copy the code or link, the phone share sheet, or a QR code to scan. */
+function SharePanel({ code, link }: { code: string; link: string }) {
+  const [copied, setCopied] = useState<'code' | 'link' | null>(null)
+  const [showQr, setShowQr] = useState(false)
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+  const qrSvg = useMemo(() => {
+    const qr = qrcode(0, 'M')
+    qr.addData(link)
+    qr.make()
+    return qr.createSvgTag({ cellSize: 5, margin: 2, scalable: true })
+  }, [link])
+
+  async function doCopy(kind: 'code' | 'link') {
+    if (await copy(kind === 'code' ? code : link)) {
+      setCopied(kind)
+      window.setTimeout(() => setCopied(null), 1800)
+    }
+  }
+
+  return (
+    <div className="share-panel">
+      <div className="share-buttons">
+        <button className="ghost small-btn" onClick={() => doCopy('code')}>{copied === 'code' ? '✓ Copied' : 'Copy code'}</button>
+        <button className="ghost small-btn" onClick={() => doCopy('link')}>{copied === 'link' ? '✓ Copied' : 'Copy invite link'}</button>
+        {canShare && <button className="ghost small-btn" onClick={() => navigator.share({ title: 'Praise Play', text: `Join my Praise Play room: ${code}`, url: link }).catch(() => {})}>Share…</button>}
+      </div>
+      <button className={`qr-toggle${showQr ? ' open' : ''}`} onClick={() => setShowQr((v) => !v)} aria-expanded={showQr}>
+        {showQr ? 'Hide QR code' : 'Show QR code'} <span aria-hidden="true">▾</span>
+      </button>
+      <div className={`qr-drop${showQr ? ' open' : ''}`} aria-hidden={!showQr}>
+        <div className="qr-drop-inner">
+          {showQr && (
+            <div className="qr">
+              <div className="qr-code" dangerouslySetInnerHTML={{ __html: qrSvg }} />
+              <span>Scan with a phone camera to join</span>
+            </div>
+          )}
+        </div>
+      </div>
+      <span className="share-link">{link.replace(/^https?:\/\//, '')}</span>
+    </div>
+  )
 }
