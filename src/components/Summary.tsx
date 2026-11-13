@@ -5,6 +5,7 @@ import type { Mode } from '../App'
 import { msUntilTomorrow } from '../lib/daily'
 import { Confetti, CountUp } from './Fx'
 import { ListenLinks } from './ListenLinks'
+import { RunLeaderboard } from './Leaderboard'
 
 function square(points: number, skipped: boolean): string {
   if (skipped) return '⬛'
@@ -21,9 +22,9 @@ function verdict(ratio: number): string {
   return 'Tough set. Try another run!'
 }
 
-type Props = { run: RunRecord; mode: Mode; daily: number | null; stats: Stats; onAgain: () => void; onHome: () => void }
+type Props = { run: RunRecord; mode: Mode; daily: number | null; stats: Stats; onAgain: () => void; onHome: () => void; onLeaderboard: () => void }
 
-export function Summary({ run, mode, daily, stats, onAgain, onHome }: Props) {
+export function Summary({ run, mode, daily, stats, onAgain, onHome, onLeaderboard }: Props) {
   const [copied, setCopied] = useState(false)
   const endless = mode === 'endless'
   const named = run.results.filter((r) => r.outcome === 'named').length
@@ -74,6 +75,7 @@ export function Summary({ run, mode, daily, stats, onAgain, onHome }: Props) {
           </li>
         ))}
       </ol>
+      {mode === 'run' && <RunLeaderboard run={run} onOpen={onLeaderboard} />}
       <div className="summary-actions">
         <button className="primary shine" onClick={share}>{copied ? 'Copied!' : 'Share score'}</button>
         <button className="ghost" onClick={onAgain}>{daily ? 'Play a free run' : endless ? 'Play endless again' : 'Play again'}</button>

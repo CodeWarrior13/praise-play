@@ -54,6 +54,8 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
           <li><span className="num">2</span><span>Need more? Drag the bar or tap <strong>0.5s</strong>, <strong>1s</strong>, <strong>3s</strong> or <strong>+1s</strong>, up to 30 seconds.</span></li>
           <li><span className="num">3</span><span>Search the <strong>song or artist</strong> and pick it from the list.</span></li>
           <li><span className="num">4</span><span>A wrong guess costs <strong>{WRONG_GUESS_PENALTY}</strong> points, but the song keeps going. <strong>Skip</strong> reveals it for 0.</span></li>
+          <li><span className="num">5</span><span>Stuck? <strong>💡 Hints</strong> are optional and only appear when you tap them: year &amp; genre (−500), then the artist’s first letter (−1,000), then the artist (−1,500).</span></li>
+          <li><span className="num">6</span><span>Finish a solo <strong>5-song run</strong> with a top-50 score and you can post it to the <strong>🏆 global leaderboard</strong>.</span></li>
         </ol>
 
         <h3>What a song is worth</h3>

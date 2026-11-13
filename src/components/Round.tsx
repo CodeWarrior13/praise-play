@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { artUrl, type Catalog, type Song } from '../lib/catalog'
 import { isCorrectGuess } from '../lib/daily'
 import { getPreview, type Preview } from '../lib/preview'
-import { DIFFICULTY, MIN_CLIP, WRONG_GUESS_PENALTY, formatSeconds, songPoints } from '../lib/scoring'
+import { DIFFICULTY, MIN_CLIP, WRONG_GUESS_PENALTY, formatSeconds, hintPenalty, songPoints } from '../lib/scoring'
+import { hintsFor } from '../lib/hints'
+import { HintBox } from './HintBox'
 import type { SongResult } from '../lib/storage'
 import { ClipPlayer } from './ClipPlayer'
 import { GuessBox } from './GuessBox'
@@ -31,6 +33,8 @@ type Props = {
 export function Round({ catalog, song, nextSong, index, total, level, runScore, lives, maxLives = 3, onNext, onQuit }: Props) {
   const [unlocked, setUnlocked] = useState(MIN_CLIP)
   const [wrong, setWrong] = useState<string[]>([])
+  const [hintsUsed, setHintsUsed] = useState(0)
+  const hints = useMemo(() => hintsFor(song, catalog), [song, catalog])
   const [result, setResult] = useState<SongResult | null>(null)
   const [preview, setPreview] = useState<Preview | null | 'loading'>('loading')
   const startedAt = useRef<number | null>(null)
@@ -84,7 +88,8 @@ export function Round({ catalog, song, nextSong, index, total, level, runScore, 
       artist: song.artist,
       seconds: unlocked,
       wrongGuesses: wrong.length,
-      points: outcome === 'named' ? songPoints(unlocked, wrong.length) : 0,
+      hints: hintsUsed,
+      points: outcome === 'named' ? songPoints(unlocked, wrong.length, hintsUsed) : 0,
       outcome,
       elapsed,
     })
@@ -128,11 +133,12 @@ export function Round({ catalog, song, nextSong, index, total, level, runScore, 
             startSeconds={0}
             unlocked={unlocked}
             onUnlock={setUnlocked}
-            penalty={wrong.length * WRONG_GUESS_PENALTY}
+            penalty={wrong.length * WRONG_GUESS_PENALTY + hintPenalty(hintsUsed)}
             onFirstPlay={() => { startedAt.current ??= performance.now() }}
             onAudioError={unavailable}
             hotkeys
           />
+          <HintBox hints={hints} used={hintsUsed} onTake={() => setHintsUsed((n) => n + 1)} />
           <GuessBox
             catalog={catalog}
             excluded={excluded}
@@ -172,7 +178,7 @@ export function Round({ catalog, song, nextSong, index, total, level, runScore, 
           <div className="reveal-stats">
             <div><strong>{formatSeconds(result.seconds)}</strong><span>heard</span></div>
             <div><strong>{result.elapsed !== undefined ? `${result.elapsed}s` : '—'}</strong><span>to {result.outcome === 'named' ? 'answer' : 'skip'}</span></div>
-            <div><strong>{result.wrongGuesses}</strong><span>wrong</span></div>
+            <div><strong>{result.wrongGuesses}{result.hints ? ` · ${result.hints}💡` : ''}</strong><span>wrong{result.hints ? ' · hints' : ''}</span></div>
           </div>
           <div className="answer-card">
             <div className="art-stack">

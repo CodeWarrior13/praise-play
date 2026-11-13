@@ -3,7 +3,9 @@ import { artUrl, type Catalog, type Song } from '../lib/catalog'
 import { isCorrectGuess } from '../lib/daily'
 import { getPreview, prefetchPreviews, type Preview } from '../lib/preview'
 import { filterSongs, type RunOptions } from '../lib/run'
-import { MIN_CLIP, WRONG_GUESS_PENALTY, formatPoints, formatSeconds, songPoints } from '../lib/scoring'
+import { MIN_CLIP, WRONG_GUESS_PENALTY, formatPoints, formatSeconds, hintPenalty, songPoints } from '../lib/scoring'
+import { hintsFor } from '../lib/hints'
+import { HintBox } from './HintBox'
 import { loadSetting, saveSetting } from '../lib/storage'
 import { ClientRoom, DIFFICULTIES, ENDLESS_LIVES, HostRoom, MAX_PLAYERS, cleanCode, cleanName, type Difficulty, type GameMode, type Outcome, type PlayerView, type RoundResult, type ServerMessage } from '../lib/multiplayer'
 import { endlessLevel } from '../lib/run'
@@ -122,8 +124,8 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
     await host.current.start(pool)
   }
 
-  function submit(index: number, outcome: Outcome, seconds: number, wrong: number, elapsed: number) {
-    const answer = { t: 'answer' as const, index, outcome, seconds, wrong, elapsed }
+  function submit(index: number, outcome: Outcome, seconds: number, wrong: number, elapsed: number, hints: number) {
+    const answer = { t: 'answer' as const, index, outcome, seconds, wrong, elapsed, hints }
     if (host.current) host.current.submit('host', answer)
     else client.current?.answer(answer)
   }
@@ -226,7 +228,7 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
         answered={answered}
         me={me}
         lives={players.find((p) => p.id === me)?.lives}
-        onAnswer={(outcome, seconds, wrong, elapsed) => submit(view.index, outcome, seconds, wrong, elapsed)}
+        onAnswer={(outcome, seconds, wrong, elapsed, hints) => submit(view.index, outcome, seconds, wrong, elapsed, hints)}
         onLeave={leave}
       />
     )
@@ -247,7 +249,7 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
             <li key={r.id} className={r.id === me ? 'me' : ''} style={{ animationDelay: `${150 + i * 50}ms` }}>
               <span className="avatar" style={{ '--h': hue(r.name) } as React.CSSProperties}>{r.name.slice(0, 1).toUpperCase()}</span>
               <span className="mp-name">{r.name}</span>
-              <span className="mp-detail">{r.spectating ? 'out' : r.outcome === 'named' ? `${formatSeconds(r.seconds)}${r.wrong ? ` · ${r.wrong}✕` : ''} · ${r.elapsed}s` : r.outcome === 'skipped' ? 'skipped' : 'out of time'}{r.lostLife && <span className="life-lost">{r.out ? ' · OUT' : ' · −♥'}</span>}</span>
+              <span className="mp-detail">{r.spectating ? 'out' : r.outcome === 'named' ? `${formatSeconds(r.seconds)}${r.wrong ? ` · ${r.wrong}✕` : ''}${r.hints ? ` · ${r.hints}💡` : ''} · ${r.elapsed}s` : r.outcome === 'skipped' ? 'skipped' : 'out of time'}{r.lostLife && <span className="life-lost">{r.out ? ' · OUT' : ' · −♥'}</span>}</span>
               <strong className={r.points ? 'pos' : ''}>{r.points ? `+${formatPoints(r.points)}` : '—'}</strong>
             </li>
           ))}
@@ -300,10 +302,12 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
 function MultiRound({ catalog, song, nextSong, index, total, endsAt, players, answered, me, lives, onAnswer, onLeave }: {
   catalog: Catalog; song: Song; nextSong?: Song; index: number; total: number; endsAt: number
   players: PlayerView[]; answered: string[]; me: string; lives?: number
-  onAnswer: (outcome: Outcome, seconds: number, wrong: number, elapsed: number) => void; onLeave: () => void
+  onAnswer: (outcome: Outcome, seconds: number, wrong: number, elapsed: number, hints: number) => void; onLeave: () => void
 }) {
   const [unlocked, setUnlocked] = useState(MIN_CLIP)
   const [wrong, setWrong] = useState<string[]>([])
+  const [hintsUsed, setHintsUsed] = useState(0)
+  const hints = useMemo(() => hintsFor(song, catalog), [song, catalog])
   const [done, setDone] = useState<{ outcome: Outcome; points: number } | null>(null)
   const [preview, setPreview] = useState<Preview | null | 'loading'>('loading')
   const [left, setLeft] = useState(() => Math.max(0, endsAt - performance.now()))
@@ -323,10 +327,10 @@ function MultiRound({ catalog, song, nextSong, index, total, endsAt, players, an
   const finish = useCallback((outcome: Outcome, seconds = unlocked, wrongCount = wrong.length) => {
     if (done) return
     const elapsed = Math.round((performance.now() - startedAt.current) / 100) / 10
-    const points = outcome === 'named' ? songPoints(seconds, wrongCount) : 0
+    const points = outcome === 'named' ? songPoints(seconds, wrongCount, hintsUsed) : 0
     setDone({ outcome, points })
-    onAnswer(outcome, seconds, wrongCount, elapsed)
-  }, [done, unlocked, wrong.length, onAnswer])
+    onAnswer(outcome, seconds, wrongCount, elapsed, hintsUsed)
+  }, [done, unlocked, wrong.length, hintsUsed, onAnswer])
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -373,8 +377,9 @@ function MultiRound({ catalog, song, nextSong, index, total, endsAt, players, an
         </div>
       ) : !done ? (
         <div className="round-body">
-          <ClipPlayer key={song.id} preview={preview} startSeconds={0} unlocked={unlocked} onUnlock={setUnlocked} penalty={wrong.length * WRONG_GUESS_PENALTY} hotkeys onAudioError={() => setPreview(null)} />
+          <ClipPlayer key={song.id} preview={preview} startSeconds={0} unlocked={unlocked} onUnlock={setUnlocked} penalty={wrong.length * WRONG_GUESS_PENALTY + hintPenalty(hintsUsed)} hotkeys onAudioError={() => setPreview(null)} />
           {preview === null && <p className="notice">This song’s audio didn’t load for you. Skip it; you won’t be the only one.</p>}
+          <HintBox hints={hints} used={hintsUsed} onTake={() => setHintsUsed((n) => n + 1)} />
           <GuessBox catalog={catalog} excluded={excluded} onGuess={guess} onSkip={() => finish('skipped')} skipLabel={endless ? 'Skip −♥' : 'Skip'} shake={wrong.length} />
           {wrong.length > 0 && (
             <ul className="wrong-list">

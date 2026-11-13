@@ -35,8 +35,16 @@ export function clipWorth(seconds: number): number {
   return Math.round(points / 10) * 10
 }
 
-export function songPoints(seconds: number, wrongGuesses: number): number {
-  return Math.max(0, clipWorth(seconds) - wrongGuesses * WRONG_GUESS_PENALTY)
+/** What each hint costs, in order. Hints are optional and only shown when asked for. */
+export const HINT_COSTS = [500, 1000, 1500]
+
+/** Total cost of taking the first `hints` hints. */
+export function hintPenalty(hints: number): number {
+  return HINT_COSTS.slice(0, Math.max(0, Math.min(hints, HINT_COSTS.length))).reduce((sum, cost) => sum + cost, 0)
+}
+
+export function songPoints(seconds: number, wrongGuesses: number, hints = 0): number {
+  return Math.max(0, clipWorth(seconds) - wrongGuesses * WRONG_GUESS_PENALTY - hintPenalty(hints))
 }
 
 export function formatSeconds(seconds: number): string {

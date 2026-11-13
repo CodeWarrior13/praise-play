@@ -10,6 +10,8 @@ A Christian-music song-guessing game. Each song starts at **0.1 seconds** of aud
 - **Unlocking more:** drag the logarithmic scrubber, tap the 0.1s, 0.5s, 1s and 3s buttons, or press +1s. The current "worth" updates as you go.
 - **Scoring:** 10,000 points at 0.1s, falling steeply at first and reaching 3,000 at the full 30s (`clipWorth` in `src/lib/scoring.ts`). Each wrong guess costs 500, and the song keeps going. Skip reveals the answer and scores 0.
 - **Run options:** Hits / Everything / Deep cuts, any mix of 16 genres, up to 60 artists (or one tap for your Spotify top artists), and an era range with decade shortcuts. A narrow pool is still ranked from easy to hard.
+- **Hints (optional):** a 💡 button reveals clues only when tapped: release year and genre (−500), the artist's first letter and title length (−1,000), then the artist (−1,500).
+- **Global leaderboard:** finish a solo 5-song run with a top-50 score to post it to the Today and All-time boards (🏆 in the header). Scores are stored with Netlify Blobs by a Netlify Function (`netlify/functions/leaderboard.mts`), which re-scores every run from the per-song details. It runs automatically on Netlify; nothing to configure.
 - **Guessing:** search by song or artist. Results show album covers, and typing an artist's name lists their songs. Start typing anywhere to search; On desktop: just start typing to search (any letter, including A, D and H). `Space` plays; a single quick tap of `A` replays, `D` adds a second, and `H` opens help (which pauses the game). `←`/`→` also replay and add a second.
 - **After each song:** the cover slides out of a spinning record, with "hear the full song" buttons for Apple Music and Spotify (also on every row of the results screen), the song keeps playing, and you see how much you heard, how long you took, and your wrong guesses. If a preview is ever missing, the game swaps in another song of the same difficulty, with no penalty.
 - **End of run:** a per-song breakdown, a shareable emoji summary, and your best/average/fastest stats (stored on the device).
@@ -44,9 +46,9 @@ The repository builds a plain static site (`npm run build` → `dist/`). Two rea
 
 Songs live in `public/catalog.json`, which is generated, not hand-written.
 
-1. **The roster:** `scripts/artists.mjs` lists about 320 Christian artists, each with genre tags (or `auto`) and a fame score (1–10).
-1. **Your playlists:** `scripts/playlist-songs.json` holds the ~700 songs from your Spotify playlists. Every one is matched or looked up on Apple Music and flagged, so Run options can limit a game to "Your playlists" or "Your artists".
-2. **The build:** `npm run catalog` asks the iTunes Search API for up to 200 songs per artist. Apple returns them roughly most-popular first. The script merges live/radio/feat. versions into one song, drops instrumentals, remixes, karaoke, foreign-language duplicates and interludes, and keeps the earliest release year. It tags Christmas songs and classic hymns automatically.
+1. **The roster:** `scripts/artists.mjs` lists about 300 English-language Christian artists, each with genre tags (or `auto`) and a fame score (1–10).
+1. **Your playlists:** `scripts/playlist-songs.json` holds the ~700 songs from your Spotify playlists. Every one is matched or looked up on Apple Music and flagged, so Run options can limit a game to the "Assorted Playlist" (those songs) or "Popular Picks" (everything by those artists).
+2. **The build:** `npm run catalog` asks the iTunes Search API for up to 200 songs per artist. Apple returns them roughly most-popular first. The script merges live/radio/feat. versions into one song, drops instrumentals, remixes, karaoke, foreign-language duplicates and interludes, and keeps the earliest release year. It tags Christmas songs and classic hymns automatically, and keeps the catalog English-only (Spanish/Portuguese titles and versions are dropped; English songs with foreign-language titles like "El Shaddai" stay).
 3. **Popularity** = artist fame × the song's rank in that artist's list (1–100). This drives Hits / Everything / Deep cuts and the Easy → Legend order within a run.
 4. **At play time** the app fetches the 5 songs' previews and album art in one Apple lookup call.
 

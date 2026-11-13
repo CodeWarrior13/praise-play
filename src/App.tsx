@@ -13,6 +13,7 @@ import { ThemePicker } from './components/ThemePicker'
 import { Backdrop } from './components/Fx'
 import { HelpDialog } from './components/HelpDialog'
 import { Multiplayer } from './components/Multiplayer'
+import { LeaderboardDialog } from './components/Leaderboard'
 import { onShortcut, typingInField } from './lib/keys'
 import { saveSetting } from './lib/storage'
 
@@ -45,6 +46,8 @@ export default function App() {
   const [stats, setStats] = useState(loadStats)
   const [themeId, setThemeId] = useState(loadThemeId)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [boardOpen, setBoardOpen] = useState(false)
+  const closeBoard = useCallback(() => setBoardOpen(false), [])
   const today = localDateKey()
 
   // H opens help. During a round the search box decides whether H was a tap or the
@@ -69,7 +72,14 @@ export default function App() {
   useEffect(() => { applyTheme(findTheme(themeId)) }, [themeId])
 
   useEffect(() => {
-    loadCatalog().then(setCatalog, (e: Error) => setError(e.message))
+    loadCatalog().then((loaded) => {
+      // Drop saved genre filters that no longer exist (e.g. Latin was removed).
+      setOptions((current) => {
+        const genres = current.genres.filter((id) => loaded.genres.some((g) => g.id === id))
+        return genres.length === current.genres.length ? current : { ...current, genres }
+      })
+      setCatalog(loaded)
+    }, (e: Error) => setError(e.message))
   }, [])
 
   function changeTheme(id: string) {
@@ -188,7 +198,7 @@ export default function App() {
   } else if (screen.kind === 'multi') {
     body = <Multiplayer catalog={catalog} options={options} initialCode={screen.code} onExit={goHome} />
   } else if (screen.kind === 'home') {
-    body = <Home catalog={catalog} options={options} onOptions={changeOptions} onStart={startRun} onDaily={startDaily} onEndless={startEndless} onMultiplayer={() => setScreen({ kind: 'multi', code: '' })} onHelp={() => setHelpOpen(true)} daily={loadDaily(today)} dayNumber={dayNumber(today)} stats={stats} />
+    body = <Home catalog={catalog} options={options} onOptions={changeOptions} onStart={startRun} onDaily={startDaily} onEndless={startEndless} onMultiplayer={() => setScreen({ kind: 'multi', code: '' })} onLeaderboard={() => setBoardOpen(true)} onHelp={() => setHelpOpen(true)} daily={loadDaily(today)} dayNumber={dayNumber(today)} stats={stats} />
   } else if (screen.kind === 'play') {
     const { game } = screen
     const index = game.results.length
@@ -220,6 +230,7 @@ export default function App() {
         stats={stats}
         onAgain={screen.mode === 'endless' ? startEndless : startRun}
         onHome={goHome}
+        onLeaderboard={() => setBoardOpen(true)}
       />
     )
   }
@@ -236,12 +247,14 @@ export default function App() {
             <span>praise<b>play</b></span>
           </button>
           <div className="top-actions">
+            <button className="icon-button" onClick={() => setBoardOpen(true)} aria-label="Leaderboard" title="Leaderboard">🏆</button>
             <button className="icon-button" onClick={() => setHelpOpen(true)} aria-label="How to play (H)" title="How to play (H)">?</button>
             <ThemePicker value={themeId} onChange={changeTheme} />
           </div>
         </header>
         {body}
         {helpOpen && <HelpDialog onClose={closeHelp} />}
+        {boardOpen && <LeaderboardDialog onClose={closeBoard} />}
         <footer>Made for music that lifts the spirit <span>✦</span> Previews & artwork courtesy of Apple Music</footer>
       </div>
     </>

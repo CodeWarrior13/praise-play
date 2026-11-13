@@ -12,6 +12,8 @@ export type SongResult = {
   outcome: 'named' | 'skipped' | 'unavailable'
   /** Seconds from the first play to naming (or skipping) the song. */
   elapsed?: number
+  /** How many optional hints were taken. */
+  hints?: number
 }
 
 export type RunRecord = { total: number; results: SongResult[] }

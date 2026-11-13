@@ -14,6 +14,7 @@ type Props = {
   onDaily: () => void
   onEndless: () => void
   onMultiplayer: () => void
+  onLeaderboard: () => void
   onHelp: () => void
   daily: RunRecord | null
   dayNumber: number
@@ -26,7 +27,7 @@ const POPULARITY: { id: Popularity; label: string; hint: string }[] = [
   { id: 'deep', label: 'Deep cuts', hint: 'Album tracks for true fans' },
 ]
 
-export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless, onMultiplayer, onHelp, daily, dayNumber, stats }: Props) {
+export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless, onMultiplayer, onLeaderboard, onHelp, daily, dayNumber, stats }: Props) {
   // Returning players don't need the rules spelled out every time.
   const [showHelp] = useState(() => !loadSetting('seenHelp', false) && stats.runs === 0)
   const start = (fn: () => void) => () => { saveSetting('seenHelp', true); fn() }
@@ -66,7 +67,7 @@ export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless,
 
   const summary = [
     options.genres.length ? options.genres.map(genreLabel).join(', ') : 'All genres',
-    options.library === 'playlist' ? 'your playlist songs' : options.library === 'mine' ? 'your artists' : null,
+    options.library === 'playlist' ? 'Assorted Playlist' : options.library === 'mine' ? 'Popular Picks' : null,
     options.artists.length ? `${options.artists.length} artist${options.artists.length > 1 ? 's' : ''}` : `${catalog.artists.length} artists`,
     options.yearFrom !== null || options.yearTo !== null ? `${yearFrom}–${yearTo}` : null,
     options.popularity !== 'all' ? POPULARITY.find((p) => p.id === options.popularity)!.label.toLowerCase() : null,
@@ -95,6 +96,7 @@ export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless,
             Friends
           </button>
         </div>
+        <button className="lb-link" onClick={onLeaderboard}>🏆 Global leaderboard</button>
         <p className="pool-count"><strong><CountUp value={pool.length} duration={500} /></strong> songs in the pool</p>
       </section>
 
@@ -131,12 +133,12 @@ export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless,
                 <div className="option-label"><span>Song library</span></div>
                 <div className="segmented three library">
                   {([
-                    ['all', 'Everyone', libraryCounts.all],
-                    ['mine', 'Your artists', libraryCounts.mine],
-                    ['playlist', 'Your playlists', libraryCounts.playlist],
+                    ['all', 'Full Catalog', libraryCounts.all],
+                    ['mine', 'Popular Picks', libraryCounts.mine],
+                    ['playlist', 'Assorted Playlist', libraryCounts.playlist],
                   ] as [Library, string, number][]).map(([id, label, count]) => (
                     <button key={id} className={options.library === id ? 'active' : ''} onClick={() => set({ library: id })}>
-                      {id !== 'all' && <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm4.6 14.4a.6.6 0 0 1-.9.2c-2.4-1.5-5.4-1.8-9-1a.6.6 0 1 1-.3-1.2c3.9-.9 7.2-.5 9.9 1.1.3.2.4.6.3.9Zm1.2-2.7a.8.8 0 0 1-1 .3c-2.7-1.7-6.9-2.2-10.2-1.2a.8.8 0 1 1-.4-1.5c3.7-1.1 8.3-.6 11.4 1.4.3.2.4.7.2 1Zm.1-2.8C14.6 9 9.2 8.8 6.1 9.7a.9.9 0 1 1-.5-1.8c3.6-1.1 9.5-.9 13.2 1.3a.9.9 0 0 1-.9 1.7Z" /></svg>}
+                      <span className="lib-icon" aria-hidden="true">{id === 'all' ? '◎' : id === 'mine' ? '★' : '✦'}</span>
                       {label}
                       <small>{count.toLocaleString()}</small>
                     </button>
@@ -174,7 +176,7 @@ export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless,
                 <div className="chips artist-chips">
                   {artistMatches.map((artist) => (
                     <button key={artist.name} className={`chip${options.artists.includes(artist.name) ? ' active' : ''}${artist.mine ? ' mine' : ''}`} onClick={() => set({ artists: toggle(options.artists, artist.name) })} disabled={!options.artists.includes(artist.name) && options.artists.length >= MAX_ARTISTS}>
-                      {artist.mine && <span className="dot" aria-label="Your Spotify artist" />}{artist.name} <small>{artist.count}</small>
+                      {artist.mine && <span className="dot" aria-label="Popular pick" title="Popular pick" />}{artist.name} <small>{artist.count}</small>
                     </button>
                   ))}
                 </div>

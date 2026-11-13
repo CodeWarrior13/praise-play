@@ -20,7 +20,6 @@ export const GENRES = {
   rnb: 'R&B & Soul',
   southern: 'Southern Gospel',
   hymns: 'Hymns',
-  latin: 'Latin',
   electronic: 'Electronic',
   instrumental: 'Instrumental & Lo-Fi',
   christmas: 'Christmas',
@@ -251,22 +250,6 @@ Brian Courtney Wilson | gospel,rnb | 5
 Kierra Sheard | gospel,rnb | 5
 BeBe Winans | gospel,rnb | 4
 Anthony Evans | rnb,worship | 4
-Marcos Witt | latin | 5
-Jesús Adrián Romero | latin | 5
-Marco Barrientos | latin | 4
-Christine D'Clario | latin | 5
-Evan Craft | latin | 4
-Barak | latin | 4
-Danilo Montero | latin | 4
-Marcela Gándara | latin | 4
-Miel San Marcos | latin | 6
-Generación 12 | latin | 4
-Alex Campos | latin | 5
-Redimi2 | latin,hiphop | 5
-Su Presencia | latin | 4
-Hillsong en Español | latin | 4
-Lilly Goodman | latin | 4
-Funky | latin,hiphop | 4 | | 80960663
 Capital Kings | electronic | 3
 LZ7 | electronic,hiphop | 3
 
@@ -347,6 +330,7 @@ Roosevelt Stewart | auto | 3
 Swaizy | auto | 3
 Matt Vollmar and the Great Romance | auto | 3
 Anike | auto | 3
+GRAHAM | auto | 3 | | 1625580903
 Arthur Chatman | auto | 3
 `
 

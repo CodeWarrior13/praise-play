@@ -25,7 +25,7 @@ export type Outcome = 'named' | 'skipped' | 'timeout'
 /** lives is only set in Endless games. */
 export type PlayerView = { id: string; name: string; score: number; host: boolean; connected: boolean; lives?: number }
 
-export type RoundResult = { id: string; name: string; outcome: Outcome; points: number; seconds: number; wrong: number; elapsed: number; lostLife?: boolean; out?: boolean; spectating?: boolean }
+export type RoundResult = { id: string; name: string; outcome: Outcome; points: number; seconds: number; wrong: number; elapsed: number; hints?: number; lostLife?: boolean; out?: boolean; spectating?: boolean }
 
 export type GameMode = 'set' | 'endless'
 export type Difficulty = 'mixed' | 'easy' | 'hard' | 'extreme' | 'impossible'
@@ -61,9 +61,9 @@ export type ServerMessage =
 
 export type ClientMessage =
   | { t: 'hello'; name: string }
-  | { t: 'answer'; index: number; outcome: Outcome; seconds: number; wrong: number; elapsed: number }
+  | { t: 'answer'; index: number; outcome: Outcome; seconds: number; wrong: number; elapsed: number; hints?: number }
 
-type Answer = { outcome: Outcome; seconds: number; wrong: number; elapsed: number; points: number }
+type Answer = { outcome: Outcome; seconds: number; wrong: number; elapsed: number; points: number; hints?: number }
 
 export type Listener = (message: ServerMessage) => void
 
@@ -302,8 +302,9 @@ export class HostRoom {
     if (!this.roundOpen || answer.index !== this.index || this.answers.has(id) || !player || !this.active(player)) return
     const seconds = Math.min(30, Math.max(0.1, Number(answer.seconds) || 30))
     const wrong = Math.max(0, Math.floor(Number(answer.wrong) || 0))
-    const points = answer.outcome === 'named' ? songPoints(seconds, wrong) : 0
-    this.answers.set(id, { outcome: answer.outcome, seconds, wrong, elapsed: Math.max(0, Number(answer.elapsed) || 0), points })
+    const hints = Math.min(3, Math.max(0, Math.floor(Number(answer.hints) || 0)))
+    const points = answer.outcome === 'named' ? songPoints(seconds, wrong, hints) : 0
+    this.answers.set(id, { outcome: answer.outcome, seconds, wrong, hints, elapsed: Math.max(0, Number(answer.elapsed) || 0), points })
     this.broadcast({ t: 'status', answered: [...this.answers.keys()] })
     this.checkRoundDone()
   }
