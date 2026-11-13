@@ -4,6 +4,7 @@ import type { RunRecord, Stats } from '../lib/storage'
 import type { Mode } from '../App'
 import { msUntilTomorrow } from '../lib/daily'
 import { Confetti, CountUp } from './Fx'
+import { ListenLinks } from './ListenLinks'
 
 function square(points: number, skipped: boolean): string {
   if (skipped) return '⬛'
@@ -65,6 +66,7 @@ export function Summary({ run, mode, daily, stats, onAgain, onHome }: Props) {
           <li key={i} style={{ animationDelay: `${300 + Math.min(i, 12) * 70}ms` }}>
             <span className="sq">{square(result.points, result.outcome === 'skipped')}</span>
             <span className="result-song"><strong>{result.title}</strong><span>{result.artist}</span></span>
+            <ListenLinks compact trackId={result.songId} title={result.title} artist={result.artist} />
             <span className="result-pts">
               <strong>{result.outcome === 'skipped' ? '—' : formatPoints(result.points)}</strong>
               <span>{result.outcome === 'skipped' ? 'skipped' : `${formatSeconds(result.seconds)} heard${result.elapsed !== undefined ? ` · ${result.elapsed}s` : ''}${result.wrongGuesses ? ` · ${result.wrongGuesses}✕` : ''}`}</span>

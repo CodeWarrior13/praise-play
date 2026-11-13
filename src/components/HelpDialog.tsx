@@ -4,11 +4,11 @@ import { pauseAll, resumeAll } from '../lib/pause'
 
 const KEYS: [string, string][] = [
   ['Space', 'Play / stop the clip'],
-  ['A  ←', 'Replay from the start'],
-  ['D  →', 'Unlock one more second'],
-  ['/  Enter', 'Jump to the search box'],
+  ['A  ←', 'Replay (tap once)'],
+  ['D  →', 'Unlock one more second (tap once)'],
+  ['A–Z', 'Just start typing to search'],
   ['↑ ↓  Enter', 'Pick a search result'],
-  ['H', 'Open or close this help'],
+  ['H', 'Open or close this help (tap once)'],
   ['Esc', 'Close'],
 ]
 

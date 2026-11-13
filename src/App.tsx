@@ -12,6 +12,7 @@ import { Summary } from './components/Summary'
 import { ThemePicker } from './components/ThemePicker'
 import { Backdrop } from './components/Fx'
 import { HelpDialog } from './components/HelpDialog'
+import { onShortcut, typingInField } from './lib/keys'
 import { saveSetting } from './lib/storage'
 
 export type Mode = 'run' | 'daily' | 'endless'
@@ -41,17 +42,18 @@ export default function App() {
   const [helpOpen, setHelpOpen] = useState(false)
   const today = localDateKey()
 
-  // H opens help from anywhere (except while typing); the dialog handles closing.
+  // H opens help. During a round the search box decides whether H was a tap or the
+  // start of a word ("Hillsong") and sends a shortcut; elsewhere it opens right away.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null
-      if (event.metaKey || event.ctrlKey || event.altKey || event.key.toLowerCase() !== 'h') return
-      if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return
+      if (event.metaKey || event.ctrlKey || event.altKey || event.key.toLowerCase() !== 'h' || typingInField(event.target)) return
+      if (document.querySelector('[data-guess-input]')) return
       event.preventDefault()
       setHelpOpen(true)
     }
+    const offShortcut = onShortcut((key) => { if (key === 'h') setHelpOpen(true) })
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    return () => { window.removeEventListener('keydown', onKey); offShortcut() }
   }, [])
 
   const closeHelp = useCallback(() => {

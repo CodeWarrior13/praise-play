@@ -1,0 +1,13 @@
+# Netlify reads this automatically: no settings to fill in.
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# The song catalog rarely changes between deploys; let browsers cache it briefly.
+[[headers]]
+  for = "/catalog.json"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"

@@ -2,12 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { artUrl, type Catalog, type Song } from '../lib/catalog'
 import { normalize } from '../lib/daily'
 import { isPaused } from '../lib/pause'
+import { SHORTCUT_KEYS, TAP_WINDOW, emitShortcut, typingInField, type ShortcutKey } from '../lib/keys'
 
 type Props = { catalog: Catalog; excluded: Set<string>; onGuess: (song: Song) => void; onSkip: () => void; skipLabel?: string; shake: number }
 
 const MAX_SONG_RESULTS = 8
 const MAX_ARTIST_SONGS = 40
-const SHORTCUT_KEYS = new Set(['a', 'd', 'h'])
 
 /**
  * Search the whole catalog by title or artist. Typing an artist's name lists their
@@ -20,23 +20,57 @@ export function GuessBox({ catalog, excluded, onGuess, onSkip, skipLabel = 'Skip
   const listRef = useRef<HTMLUListElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Start typing anywhere to search. A, D and H are game shortcuts, so "/" or Enter
-  // jumps to the box for searches that start with those letters.
+  // Type anywhere to search, including words that start with A, D or H.
+  // A lone, quick tap of A/D/H is a shortcut (replay, +1s, help); if another
+  // letter follows within TAP_WINDOW, both letters become the start of a search.
+  const pending = useRef<{ key: string; timer: number } | null>(null)
   useEffect(() => {
+    const startSearch = (text: string) => {
+      setQuery(text)
+      setHighlight(0)
+      setOpen(true)
+      inputRef.current?.focus()
+    }
+    const flush = () => {
+      if (!pending.current) return
+      window.clearTimeout(pending.current.timer)
+      const key = pending.current.key.toLowerCase() as ShortcutKey
+      pending.current = null
+      emitShortcut(key)
+    }
     const onKey = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null
-      if (event.metaKey || event.ctrlKey || event.altKey || isPaused()) return
-      if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return
-      if (event.key === '/' || (event.key === 'Enter' && !(target instanceof HTMLButtonElement))) {
+      if (event.metaKey || event.ctrlKey || event.altKey || isPaused() || typingInField(event.target)) return
+      if (event.key === '/' || (event.key === 'Enter' && !(event.target instanceof HTMLButtonElement))) {
         event.preventDefault()
+        flush()
         inputRef.current?.focus()
         return
       }
-      if (event.key.length !== 1 || event.key === ' ' || SHORTCUT_KEYS.has(event.key.toLowerCase())) return
-      inputRef.current?.focus()
+      if (event.key.length !== 1 || event.key === ' ') { flush(); return }
+      event.preventDefault()
+      const lower = event.key.toLowerCase()
+      if (pending.current) {
+        // Repeated A or D (tap-tap) means the shortcut twice, not a word.
+        if (lower === pending.current.key.toLowerCase() && lower !== 'h') { flush() }
+        else {
+          const first = pending.current.key
+          window.clearTimeout(pending.current.timer)
+          pending.current = null
+          startSearch(first + event.key)
+          return
+        }
+      }
+      if (SHORTCUT_KEYS.has(lower)) {
+        pending.current = { key: event.key, timer: window.setTimeout(flush, TAP_WINDOW) }
+        return
+      }
+      startSearch(event.key)
     }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      if (pending.current) window.clearTimeout(pending.current.timer)
+    }
   }, [])
 
   const { artist, matches } = useMemo(() => {
@@ -87,6 +121,7 @@ export function GuessBox({ catalog, excluded, onGuess, onSkip, skipLabel = 'Skip
         <svg className="search-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M10.5 4a6.5 6.5 0 0 1 5.2 10.4l4.4 4.4-1.4 1.4-4.4-4.4A6.5 6.5 0 1 1 10.5 4Zm0 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z" /></svg>
         <input
           ref={inputRef}
+          data-guess-input
           value={query}
           onChange={(e) => { setQuery(e.target.value); setHighlight(0); setOpen(true) }}
           onFocus={() => setOpen(true)}

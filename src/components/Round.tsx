@@ -6,6 +6,7 @@ import { DIFFICULTY, MIN_CLIP, WRONG_GUESS_PENALTY, formatSeconds, songPoints } 
 import type { SongResult } from '../lib/storage'
 import { ClipPlayer } from './ClipPlayer'
 import { GuessBox } from './GuessBox'
+import { ListenLinks } from './ListenLinks'
 import { Confetti, CountUp } from './Fx'
 import { onPauseChange } from '../lib/pause'
 
@@ -149,7 +150,7 @@ export function Round({ catalog, song, nextSong, index, total, level, runScore, 
             </ul>
           )}
           <p className="hint-line">
-            <kbd>Space</kbd> play · <kbd>A</kbd> replay · <kbd>D</kbd> +1s · <kbd>/</kbd> search · <kbd>H</kbd> help
+            <kbd>Space</kbd> play · tap <kbd>A</kbd> replay · tap <kbd>D</kbd> +1s · tap <kbd>H</kbd> help · just type to search
           </p>
         </div>
       ) : (
@@ -182,13 +183,11 @@ export function Round({ catalog, song, nextSong, index, total, level, runScore, 
               <strong>{song.title}</strong>
               <span>{song.artist}</span>
               <span className="small">{[loaded?.album, song.year].filter(Boolean).join(' · ')}</span>
-              <span className="listen-links">
-                {loaded?.trackUrl && <a href={loaded.trackUrl} target="_blank" rel="noreferrer">Apple Music ↗</a>}
-                <a className="spotify-link" href={`https://open.spotify.com/search/${encodeURIComponent(`${song.title} ${song.artist}`)}`} target="_blank" rel="noreferrer">Spotify ↗</a>
-              </span>
+
             </div>
           </div>
           <ClipPlayer preview={preview} startSeconds={0} unlocked={30} autoPlay />
+          <ListenLinks trackId={song.trackId} title={song.title} artist={song.artist} />
           <button className="primary wide" onClick={() => onNext(result)} autoFocus>
             {gameOver || last ? 'See results' : 'Next song →'}
           </button>

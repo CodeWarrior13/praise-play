@@ -9,8 +9,8 @@ A Christian-music song-guessing game. Each song starts at **0.1 seconds** of aud
 - **Unlocking more:** drag the logarithmic scrubber, tap the 0.1s, 0.5s, 1s and 3s buttons, or press +1s. The current "worth" updates as you go.
 - **Scoring:** 10,000 points at 0.1s, falling steeply at first and reaching 3,000 at the full 30s (`clipWorth` in `src/lib/scoring.ts`). Each wrong guess costs 500, and the song keeps going. Skip reveals the answer and scores 0.
 - **Run options:** Hits / Everything / Deep cuts, any mix of 16 genres, up to 60 artists (or one tap for your Spotify top artists), and an era range with decade shortcuts. A narrow pool is still ranked from easy to hard.
-- **Guessing:** search by song or artist. Results show album covers, and typing an artist's name lists their songs. Start typing anywhere to search; On desktop: `Space` plays, `A`/`←` replays, `D`/`→` adds a second, `/` jumps to search, and `H` opens help (which pauses the game).
-- **After each song:** the cover slides out of a spinning record, with links to the song on Apple Music and Spotify, the song keeps playing, and you see how much you heard, how long you took, and your wrong guesses. If a preview is ever missing, the game swaps in another song of the same difficulty, with no penalty.
+- **Guessing:** search by song or artist. Results show album covers, and typing an artist's name lists their songs. Start typing anywhere to search; On desktop: just start typing to search (any letter, including A, D and H). `Space` plays; a single quick tap of `A` replays, `D` adds a second, and `H` opens help (which pauses the game). `←`/`→` also replay and add a second.
+- **After each song:** the cover slides out of a spinning record, with "hear the full song" buttons for Apple Music and Spotify (also on every row of the results screen), the song keeps playing, and you see how much you heard, how long you took, and your wrong guesses. If a preview is ever missing, the game swaps in another song of the same difficulty, with no penalty.
 - **End of run:** a per-song breakdown, a shareable emoji summary, and your best/average/fastest stats (stored on the device).
 
 ## Run locally
@@ -22,11 +22,22 @@ npm install
 npm run dev
 ```
 
-## Hosting on GitHub Pages
+## Putting it online
 
-Every push to `main` builds the site and publishes it with GitHub Actions (`.github/workflows/deploy.yml`). One-time setup: in the repository's **Settings → Pages**, set **Source** to **GitHub Actions**. The site is then served at `https://codewarrior13.github.io/praise-play/`.
+The repository builds a plain static site (`npm run build` → `dist/`). Two ready-made ways to host it:
 
-GitHub Pages for a **private** repository needs a paid GitHub plan (Pro, Team or Enterprise). On a free plan, either make the repository public or deploy the same `dist/` build to a host that serves private repos for free, such as Netlify, Vercel or Cloudflare Pages (build command `npm run build`, output folder `dist`).
+**Option A: GitHub Pages** (needs a public repo, or GitHub Pro on a private one)
+
+1. Repository **Settings → General → Danger Zone → Change visibility → Public** (skip if you have GitHub Pro).
+2. **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+3. **Actions** tab → **Deploy to GitHub Pages** → **Run workflow** (or push any commit to `main`).
+4. When the run is green, the game is at `https://codewarrior13.github.io/praise-play/`. Every push to `main` redeploys it.
+
+**Option B: Netlify** (free, works with a private repo)
+
+1. Sign in at netlify.com with GitHub → **Add new site → Import an existing project → GitHub**.
+2. Allow Netlify access to `praise-play` and pick it. The settings are read from `netlify.toml` (build `npm run build`, publish `dist`), so just click **Deploy**.
+3. The game is live at the `*.netlify.app` address Netlify shows; rename it under **Site configuration → Change site name**. Every push to `main` redeploys it.
 
 ## The song catalog
 

@@ -409,3 +409,18 @@ body[data-overlay] .page > *:not(.overlay) { filter: saturate(.7); transition: f
 @media (max-width: 480px) { .keys { grid-template-columns: 1fr; } .help-dialog { padding: 18px; } }
 @media (pointer: coarse) { .help-dialog h3:nth-last-of-type(1), .keys { display: none; } }
 .help-dialog:focus { outline: none; }
+
+/* ---------- Listen links ---------- */
+.listen-row { display: grid; gap: 8px; padding: 14px; border-radius: 18px; background: var(--surface-2); border: 1px solid var(--line); animation: rise .5s var(--ease) both .35s; }
+.listen-label { font-size: 12px; font-weight: 800; letter-spacing: .4px; color: var(--muted); text-align: center; }
+.listen-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.listen-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 12px; border-radius: 12px; font-weight: 800; font-size: 14px; text-decoration: none; transition: transform .25s var(--spring), box-shadow .25s, filter .2s; }
+.listen-btn:hover { transform: translateY(-2px); filter: brightness(1.08); }
+.listen-btn:active { transform: scale(.96); }
+.listen-btn.apple { background: linear-gradient(135deg, #fa5c74, #fb2d4e); color: #fff; box-shadow: 0 10px 24px -10px #fb2d4e; }
+.listen-btn.spotify { background: #1ed760; color: #04210f; box-shadow: 0 10px 24px -10px #1ed760; }
+.listen-icons { display: flex; gap: 6px; flex: 0 0 auto; }
+.listen-icons a { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--surface); border: 1px solid var(--line); transition: transform .25s var(--spring), background .2s, color .2s; }
+.listen-icons a.apple { color: #fb2d4e; }
+.listen-icons a.spotify { color: #1ed760; }
+.listen-icons a:hover { transform: scale(1.12); background: var(--surface-2); }

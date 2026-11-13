@@ -4,6 +4,7 @@ import { MAX_CLIP, MIN_CLIP, clipWorth, formatPoints, formatSeconds, fromPositio
 import { loadSetting, saveSetting } from '../lib/storage'
 import { CountUp, Equalizer } from './Fx'
 import { isPaused, onPauseChange } from '../lib/pause'
+import { onShortcut } from '../lib/keys'
 
 const TICKS = [0.1, 0.5, 1, 3, 10, 30]
 const JUMPS = [0.1, 0.5, 1, 3]
@@ -104,11 +105,18 @@ export function ClipPlayer({ preview, startSeconds, unlocked, onUnlock, penalty 
         event.preventDefault()
         if (playing) stop(); else play()
       }
-      else if (key === 'arrowright' || key === 'd') { event.preventDefault(); unlock(Math.min(MAX_CLIP, unlocked + 1)) }
-      else if (key === 'arrowleft' || key === 'a') { event.preventDefault(); play() }
+      else if (key === 'arrowright') { event.preventDefault(); unlock(Math.min(MAX_CLIP, unlocked + 1)) }
+      else if (key === 'arrowleft') { event.preventDefault(); play() }
     }
+    // A and D arrive from the search box once it's sure they weren't the start of a word.
+    const offShortcut = onShortcut((key) => {
+      if (isPaused()) return
+      const { play, unlock, unlocked } = latest.current
+      if (key === 'd') unlock(Math.min(MAX_CLIP, unlocked + 1))
+      else if (key === 'a') play()
+    })
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    return () => { window.removeEventListener('keydown', onKey); offShortcut() }
   }, [hotkeys])
 
   function unlock(seconds: number) {
