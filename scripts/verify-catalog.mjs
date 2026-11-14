@@ -5,6 +5,7 @@
  * covers to make sure they really serve audio and images.
  *
  *   npm run verify
+ *   npm run verify -- seasonal/christmas.json
  *
  * Behind a proxy, run with NODE_USE_ENV_PROXY=1.
  */
@@ -13,7 +14,8 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const file = join(root, 'public', 'catalog.json')
+// Defaults to the game's catalog; pass another file to check it instead (e.g. seasonal/christmas.json).
+const file = process.argv[2] ? join(root, process.argv[2]) : join(root, 'public', 'catalog.json')
 const BATCH = 150
 const DELAY_MS = 3200
 const SAMPLE = 40

@@ -12,6 +12,7 @@
  *
  *   npm run catalog            # uses cached responses when present
  *   npm run catalog -- --fresh # re-downloads everything
+ *   npm run catalog -- --with-christmas  # puts the parked Christmas songs back in the game
  *
  * Behind a proxy, run with NODE_USE_ENV_PROXY=1 (Node 22.21+).
  */
@@ -24,8 +25,12 @@ import { artists, GENRES } from './artists.mjs'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const cacheDir = join(root, 'scripts', '.cache')
 const outFile = join(root, 'public', 'catalog.json')
+/** Christmas songs are parked here, out of the game, until the season comes round. */
+const christmasFile = join(root, 'seasonal', 'christmas.json')
 const playlistFile = join(root, 'scripts', 'playlist-songs.json')
 const fresh = process.argv.includes('--fresh')
+/** Christmas songs stay out of the game unless this flag is passed (see seasonal/README.md). */
+const withChristmas = process.argv.includes('--with-christmas')
 const DELAY_MS = 3200 // Apple allows roughly 20 requests a minute.
 const PLAYLIST_MIN_POPULARITY = 30
 
@@ -48,9 +53,10 @@ const FOREIGN_WEAK = new Set(['de', 'la', 'el', 'los', 'las', 'mi', 'tu', 'que',
 function isForeign(track) {
   const title = track.trackName ?? ''
   if (FOREIGN_CHARS.test(title) || FOREIGN_ALBUM.test(track.collectionName ?? '') || FOREIGN_ALBUM.test(title)) return true
-  const words = title.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(Boolean)
-  const strong = words.filter((w) => FOREIGN_STRONG.has(w)).length
-  const weak = words.filter((w) => FOREIGN_WEAK.has(w)).length
+  // Judge the song's own title: "(feat. De La Cruz)" says nothing about the language.
+  const words = cleanTitle(title).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(Boolean)
+  const strong = new Set(words.filter((w) => FOREIGN_STRONG.has(w))).size
+  const weak = new Set(words.filter((w) => FOREIGN_WEAK.has(w))).size
   if (strong >= 1 && (strong + weak >= 2 || words.length <= 3)) return true
   return strong >= 2 || (weak >= 2 && weak / words.length >= 0.4)
 }
@@ -59,6 +65,34 @@ function isForeign(track) {
 const BLOCKED_ARTISTS = /\b(henrik|cbertis)\b/i
 const blocked = (track) => BLOCKED_ARTISTS.test(track.artistName ?? '') || BLOCKED_ARTISTS.test(track.trackName ?? '')
 const VERSION_WORDS = /\b(en vivo|ao vivo|en directo|versi[oó]n|acústico|acustico|reloaded|revisited|redux|reworked|rework|re-?recorded|re-?imagined|alternate|anthem|choir|orchestral|10th|20th|25th|live|feat\.?|ft\.?|featuring|with|version|edit|remaster(ed)?|radio|single|studio|acoustic|deluxe|bonus|mono|stereo|from|session|sessions|mix|recorded|anniversary|edition|reimagined|extended|unplugged|stripped|original|bonus track)\b/i
+
+/** Famous Christmas songs to include in the parked Christmas file (popularity sets their run difficulty). */
+const CHRISTMAS_EXTRAS = [
+  { title: 'Mary, Did You Know?', artist: 'Pentatonix', popularity: 95 },
+  { title: 'Little Drummer Boy', artist: 'Pentatonix', popularity: 90 },
+  { title: 'O Come, All Ye Faithful', artist: 'Pentatonix', popularity: 75 },
+  { title: 'Silent Night', artist: 'Pentatonix', popularity: 75 },
+  { title: 'Joy to the World', artist: 'Pentatonix', popularity: 65 },
+  { title: 'O Holy Night', artist: 'Pentatonix', popularity: 70 },
+  { title: 'Mary, Did You Know?', artist: 'CeCe Winans', popularity: 70 },
+  { title: 'Mary, Did You Know?', artist: 'Kenny Rogers', popularity: 65 },
+  { title: "Breath of Heaven (Mary's Song)", artist: 'Amy Grant', popularity: 75 },
+  { title: 'Light of the World', artist: 'Lauren Daigle', popularity: 75 },
+  { title: 'Noel', artist: 'Chris Tomlin', popularity: 80 },
+  { title: 'Joy to the World (Unspeakable Joy)', artist: 'Chris Tomlin', popularity: 70 },
+  { title: 'Emmanuel (Hallowed Manger Ground)', artist: 'Chris Tomlin', popularity: 55 },
+  { title: 'Christmas Offering', artist: 'Casting Crowns', popularity: 70 },
+  { title: 'Little Drummer Boy', artist: 'for KING & COUNTRY', popularity: 80 },
+  { title: 'O Holy Night', artist: 'Josh Groban', popularity: 85 },
+  { title: 'Do You Hear What I Hear?', artist: 'Whitney Houston', popularity: 80 },
+  { title: 'Joy to the World', artist: 'Whitney Houston', popularity: 70 },
+  { title: 'Go Tell It on the Mountain', artist: 'Mahalia Jackson', popularity: 60 },
+  { title: 'Christmas Is All in the Heart', artist: 'Steven Curtis Chapman', popularity: 50 },
+  { title: 'Winter Snow', artist: 'Audrey Assad', popularity: 45 },
+  { title: 'Born Is the King', artist: 'Hillsong Worship', popularity: 60 },
+  { title: 'Hark! The Herald Angels Sing', artist: 'Pentatonix', popularity: 60 },
+  { title: 'Go Tell It on the Mountain', artist: 'for KING & COUNTRY', popularity: 50 },
+]
 
 const CHRISTMAS = /christmas|silent night|holy night|joy to the world|hark the herald|come all ye faithful|go tell it on the mountain|little drummer boy|mary,? did you know|away in a manger|what child is this|angels we have heard|god rest ye|first no[eë]l|o come,? o come,? emmanuel|carol of the bells|o little town of bethlehem|it came upon the midnight|we three kings|feliz navidad|white christmas|noel\b/i
 const HYMNS = new Set([
@@ -311,40 +345,70 @@ async function main() {
     added += 1
   }
 
-  // Album covers, stored once per album: "1|Music221/v4/.../196873750729.jpg"
-  const arts = []
-  const artIndex = new Map()
-  function artFor(track) {
-    const match = (track.artworkUrl100 ?? '').match(/^https:\/\/is(\d)-ssl\.mzstatic\.com\/image\/thumb\/(.+)\/100x100bb\.(jpg|png|webp)$/)
-    if (!match) return -1
-    const key = `${match[1]}|${match[2]}`
-    if (!artIndex.has(key)) { artIndex.set(key, arts.length); arts.push(key) }
-    return artIndex.get(key)
+  // Famous Christmas songs, looked up one by one (they go to the parked Christmas file).
+  let extrasFound = 0
+  const extrasMissing = []
+  for (const extra of CHRISTMAS_EXTRAS) {
+    const key = normTitle(cleanTitle(extra.title))
+    const params = new URLSearchParams({ term: `${cleanTitle(extra.title)} ${extra.artist}`, entity: 'song', limit: '25', country: 'US' })
+    const { data } = await cachedGet(`https://itunes.apple.com/search?${params}`, slug(`${extra.title} ${extra.artist}`, '.xmas'))
+    const usable = (data.results ?? []).filter((r) => r.kind === 'song' && r.previewUrl && r.trackExplicitness !== 'explicit' && !/karaoke|instrumental|backing track/i.test(r.trackName))
+    const track = usable.find((r) => creditedAnywhere(r, extra.artist) && titlesClose(normTitle(cleanTitle(r.trackName)), key))
+    if (!track) { extrasMissing.push(`${extra.title} — ${extra.artist}`); continue }
+    extrasFound += 1
+    if (seenTracks.has(track.trackId)) continue
+    seenTracks.add(track.trackId)
+    const artistIndex = artistIndexByName.get(normName(extra.artist)) ?? addArtist(extra.artist, ['christmas'], false)
+    entries.push({ track, title: cleanTitle(track.trackName), key: normTitle(cleanTitle(track.trackName)), year: Number(track.releaseDate?.slice(0, 4)) || undefined, artistIndex, popularity: extra.popularity, genres: ['christmas'], playlist: false, christmas: true })
   }
 
-  const catalogSongs = entries.map((entry) => {
-    const christmas = CHRISTMAS.test(entry.title) || CHRISTMAS.test(entry.track.collectionName ?? '')
-    const hymn = HYMNS.has(entry.key)
-    const base = catalogArtists[entry.artistIndex].genres
-    const genres = christmas ? ['christmas'] : hymn ? [...new Set([...entry.genres, 'hymns'])] : entry.genres
-    const genreField = genres.join(',') === base.join(',') ? 0 : genres
-    return [entry.track.trackId, entry.title, entry.artistIndex, entry.year ?? 0, entry.popularity, genreField, artFor(entry.track), entry.playlist ? 1 : 0]
-  })
+  const isChristmas = (entry) => entry.christmas || CHRISTMAS.test(entry.title) || CHRISTMAS.test(entry.track.collectionName ?? '')
+  const mainEntries = withChristmas ? entries : entries.filter((entry) => !isChristmas(entry))
+  const christmasEntries = entries.filter(isChristmas)
 
-  const catalog = {
-    builtAt: new Date().toISOString(),
-    genres: GENRES,
-    artists: catalogArtists,
-    /** Album art paths: "<server digit>|<path>" → https://is<digit>-ssl.mzstatic.com/image/thumb/<path>/<size>x<size>bb.jpg */
-    arts,
-    /** [itunesTrackId, title, artistIndex, year, popularity 1–100, genres (0 = artist's), art index (-1 = none), 1 = from your playlists] */
-    songs: catalogSongs,
+  /** Builds one catalog file from a set of entries, keeping only the artists and covers it uses. */
+  function makeCatalog(list, christmas) {
+    const arts = []
+    const artIndex = new Map()
+    const artFor = (track) => {
+      const match = (track.artworkUrl100 ?? '').match(/^https:\/\/is(\d)-ssl\.mzstatic\.com\/image\/thumb\/(.+)\/100x100bb\.(jpg|png|webp)$/)
+      if (!match) return -1
+      const key = `${match[1]}|${match[2]}`
+      if (!artIndex.has(key)) { artIndex.set(key, arts.length); arts.push(key) }
+      return artIndex.get(key)
+    }
+    const usedArtists = [...new Set(list.map((e) => e.artistIndex))]
+    const remap = new Map(usedArtists.map((old, i) => [old, i]))
+    const artists = usedArtists.map((i) => catalogArtists[i])
+    const songs = list.map((entry) => {
+      const hymn = HYMNS.has(entry.key)
+      const base = catalogArtists[entry.artistIndex].genres
+      const genres = christmas || isChristmas(entry) ? ['christmas'] : hymn ? [...new Set([...entry.genres, 'hymns'])] : entry.genres
+      const genreField = genres.join(',') === base.join(',') ? 0 : genres
+      return [entry.track.trackId, entry.title, remap.get(entry.artistIndex), entry.year ?? 0, entry.popularity, genreField, artFor(entry.track), entry.playlist ? 1 : 0]
+    })
+    return {
+      builtAt: new Date().toISOString(),
+      genres: christmas ? { christmas: GENRES.christmas } : withChristmas ? GENRES : Object.fromEntries(Object.entries(GENRES).filter(([id]) => id !== 'christmas')),
+      artists,
+      /** Album art paths: "<server digit>|<path>" → https://is<digit>-ssl.mzstatic.com/image/thumb/<path>/<size>x<size>bb.jpg */
+      arts,
+      /** [itunesTrackId, title, artistIndex, year, popularity 1–100, genres (0 = artist's), art index (-1 = none), 1 = from your playlists] */
+      songs,
+    }
   }
+
+  const catalog = makeCatalog(mainEntries, false)
+  const christmasCatalog = makeCatalog(christmasEntries, true)
   await writeFile(outFile, JSON.stringify(catalog))
+  await mkdir(dirname(christmasFile), { recursive: true })
+  await writeFile(christmasFile, JSON.stringify(christmasCatalog))
   console.log(`\nPlaylist songs: ${matched} already in catalog, ${added} added, ${missing.length} not found on Apple Music`)
   if (missing.length) console.log(`  Not found:\n  ${missing.join('\n  ')}`)
-  console.log(`Wrote ${catalogSongs.length} songs by ${catalogArtists.length} artists (${arts.length} album covers) to public/catalog.json`)
-  const empty = catalogArtists.filter((a, i) => !catalogSongs.some((s) => s[2] === i)).map((a) => a.name)
+  console.log(`Wrote ${catalog.songs.length} songs by ${catalog.artists.length} artists (${catalog.arts.length} album covers) to public/catalog.json`)
+  console.log(`Parked ${christmasCatalog.songs.length} Christmas songs by ${christmasCatalog.artists.length} artists in seasonal/christmas.json (famous extras found: ${extrasFound}/${CHRISTMAS_EXTRAS.length})`)
+  if (extrasMissing.length) console.log(`  Christmas extras not found:\n  ${extrasMissing.join('\n  ')}`)
+  const empty = catalogArtists.filter((a) => !catalog.artists.includes(a) && !christmasCatalog.artists.includes(a)).map((a) => a.name)
   if (empty.length) console.log(`No songs found for: ${empty.join(', ')}`)
 }
 
