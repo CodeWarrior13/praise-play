@@ -117,6 +117,12 @@ export function applyTheme(theme: Theme) {
   for (const [key, value] of Object.entries(theme.vars)) root.style.setProperty(key, value)
   root.dataset.theme = theme.light ? 'light' : 'dark'
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme.vars['--bg'])
+  // The tab icon, home-screen icon and installed-app colours follow the theme.
+  // (An app that's already installed keeps the icon it was installed with.)
+  const base = import.meta.env.BASE_URL
+  document.getElementById('app-favicon')?.setAttribute('href', `${base}icons/${theme.id}-192.png`)
+  document.getElementById('app-touch-icon')?.setAttribute('href', `${base}icons/${theme.id}-180.png`)
+  document.getElementById('app-manifest')?.setAttribute('href', `${base}manifest-${theme.id}.webmanifest`)
 }
 
 export const loadThemeId = () => loadSetting('theme', 'sanctuary')

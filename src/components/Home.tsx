@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { installMode, onInstallChange } from '../lib/install'
 import { artUrl, type Catalog, type Song } from '../lib/catalog'
 import { normalize } from '../lib/daily'
 import { MAX_ARTISTS, defaultOptions, filterSongs, matchesPopularity, type Library, type Popularity, type RunOptions } from '../lib/run'
@@ -15,6 +16,7 @@ type Props = {
   onEndless: () => void
   onMultiplayer: () => void
   onLeaderboard: () => void
+  onInstall: () => void
   onHelp: () => void
   daily: RunRecord | null
   dayNumber: number
@@ -27,10 +29,12 @@ const POPULARITY: { id: Popularity; label: string; hint: string }[] = [
   { id: 'deep', label: 'Deep cuts', hint: 'Album tracks for true fans' },
 ]
 
-export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless, onMultiplayer, onLeaderboard, onHelp, daily, dayNumber, stats }: Props) {
+export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless, onMultiplayer, onLeaderboard, onInstall, onHelp, daily, dayNumber, stats }: Props) {
   // Returning players don't need the rules spelled out every time.
   const [showHelp] = useState(() => !loadSetting('seenHelp', false) && stats.runs === 0)
   const start = (fn: () => void) => () => { saveSetting('seenHelp', true); fn() }
+  const [canInstall, setCanInstall] = useState(() => installMode() !== null)
+  useEffect(() => onInstallChange(() => setCanInstall(installMode() !== null)), [])
   const [showOptions, setShowOptions] = useState(false)
   const [artistQuery, setArtistQuery] = useState('')
   const pool = useMemo(() => filterSongs(catalog, options), [catalog, options])
@@ -96,7 +100,10 @@ export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless,
             Friends
           </button>
         </div>
-        <button className="lb-link" onClick={onLeaderboard}>🏆 Global leaderboard</button>
+        <div className="home-links">
+          <button className="lb-link" onClick={onLeaderboard}>🏆 Global leaderboard</button>
+          {canInstall && <button className="lb-link" onClick={onInstall}>📲 Get the app</button>}
+        </div>
         <p className="pool-count"><strong><CountUp value={pool.length} duration={500} /></strong> songs in the pool</p>
       </section>
 

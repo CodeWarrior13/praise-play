@@ -14,6 +14,8 @@ import { Backdrop } from './components/Fx'
 import { HelpDialog } from './components/HelpDialog'
 import { Multiplayer } from './components/Multiplayer'
 import { LeaderboardDialog } from './components/Leaderboard'
+import { Splash } from './components/Splash'
+import { InstallPrompt } from './components/InstallPrompt'
 import { onShortcut, typingInField } from './lib/keys'
 import { saveSetting } from './lib/storage'
 
@@ -47,6 +49,7 @@ export default function App() {
   const [themeId, setThemeId] = useState(loadThemeId)
   const [helpOpen, setHelpOpen] = useState(false)
   const [boardOpen, setBoardOpen] = useState(false)
+  const [installOpen, setInstallOpen] = useState(false)
   const closeBoard = useCallback(() => setBoardOpen(false), [])
   const today = localDateKey()
 
@@ -198,7 +201,7 @@ export default function App() {
   } else if (screen.kind === 'multi') {
     body = <Multiplayer catalog={catalog} options={options} initialCode={screen.code} onExit={goHome} />
   } else if (screen.kind === 'home') {
-    body = <Home catalog={catalog} options={options} onOptions={changeOptions} onStart={startRun} onDaily={startDaily} onEndless={startEndless} onMultiplayer={() => setScreen({ kind: 'multi', code: '' })} onLeaderboard={() => setBoardOpen(true)} onHelp={() => setHelpOpen(true)} daily={loadDaily(today)} dayNumber={dayNumber(today)} stats={stats} />
+    body = <Home catalog={catalog} options={options} onOptions={changeOptions} onStart={startRun} onDaily={startDaily} onEndless={startEndless} onMultiplayer={() => setScreen({ kind: 'multi', code: '' })} onLeaderboard={() => setBoardOpen(true)} onInstall={() => setInstallOpen(true)} onHelp={() => setHelpOpen(true)} daily={loadDaily(today)} dayNumber={dayNumber(today)} stats={stats} />
   } else if (screen.kind === 'play') {
     const { game } = screen
     const index = game.results.length
@@ -238,6 +241,7 @@ export default function App() {
   return (
     <>
       <Backdrop />
+      <Splash ready={Boolean(catalog) || Boolean(error)} />
       <div className="page">
         <header className="topbar">
           <button className="brand" onClick={screen.kind === 'play' ? quit : screen.kind === 'multi' ? undefined : goHome} aria-label="Praise Play home">
@@ -255,6 +259,7 @@ export default function App() {
         {body}
         {helpOpen && <HelpDialog onClose={closeHelp} />}
         {boardOpen && <LeaderboardDialog onClose={closeBoard} />}
+        <InstallPrompt themeId={themeId} onHome={Boolean(catalog) && screen.kind === 'home'} forceOpen={installOpen} onClose={() => setInstallOpen(false)} />
         <footer>Made for music that lifts the spirit <span>✦</span> Previews & artwork courtesy of Apple Music</footer>
       </div>
     </>

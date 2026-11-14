@@ -7,7 +7,7 @@ import { MIN_CLIP, WRONG_GUESS_PENALTY, formatPoints, formatSeconds, hintPenalty
 import { hintsFor } from '../lib/hints'
 import { HintBox } from './HintBox'
 import { loadSetting, saveSetting } from '../lib/storage'
-import { ClientRoom, DIFFICULTIES, ENDLESS_LIVES, HostRoom, MAX_PLAYERS, cleanCode, cleanName, type Difficulty, type GameMode, type RoomLibrary, type Outcome, type PlayerView, type RoundResult, type ServerMessage } from '../lib/multiplayer'
+import { ClientRoom, DIFFICULTIES, ENDLESS_LIVES, HostRoom, MAX_PLAYERS, cleanCode, cleanName, type Difficulty, type GameMode, type RoomLibrary, ROUND_TIME_CHOICES, DEFAULT_ROUND_SECONDS, type Outcome, type PlayerView, type RoundResult, type ServerMessage } from '../lib/multiplayer'
 import { endlessLevel } from '../lib/run'
 import { DIFFICULTY } from '../lib/scoring'
 import qrcode from 'qrcode-generator'
@@ -40,6 +40,7 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
   const [mode, setMode] = useState<GameMode>('set')
   const [difficulty, setDifficulty] = useState<Difficulty>('mixed')
   const [library, setLibrary] = useState<RoomLibrary>('all')
+  const [roundSeconds, setRoundSeconds] = useState(DEFAULT_ROUND_SECONDS)
   const [answered, setAnswered] = useState<string[]>([])
   const [starting, setStarting] = useState(false)
   const host = useRef<HostRoom | null>(null)
@@ -63,12 +64,13 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
         setMode(message.settings.mode)
         setDifficulty(message.settings.difficulty)
         setLibrary(message.settings.library ?? 'all')
+        setRoundSeconds(message.settings.roundSeconds ?? DEFAULT_ROUND_SECONDS)
         if (message.phase === 'lobby') setView((v) => (v.phase === 'end' || v.phase === 'connecting' || v.phase === 'lobby' ? { phase: 'lobby' } : v))
         break
       case 'round':
         setAnswered([])
         setStarting(false)
-        setView({ phase: 'round', index: message.index, total: message.total, songId: message.songId, nextSongId: message.nextSongId, endsAt: performance.now() + message.durationMs })
+        setView({ phase: 'round', index: message.index, total: message.total, songId: message.songId, nextSongId: message.nextSongId, endsAt: message.durationMs ? performance.now() + message.durationMs : Infinity })
         break
       case 'status': setAnswered(message.answered); break
       case 'reveal':
@@ -204,6 +206,12 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
                 </button>
               ))}
             </div>
+            <div className="option-label"><span>Time per song</span><span className="diff-hint">{timeLabel(roundSeconds, true)}</span></div>
+            <div className="segmented time-picker">
+              {ROUND_TIME_CHOICES.map((s) => (
+                <button key={s} className={roundSeconds === s ? 'active' : ''} onClick={() => host.current?.setSettings({ roundSeconds: s })}>{timeLabel(s)}</button>
+              ))}
+            </div>
             <div className="option-label"><span>Difficulty</span><span className="diff-hint">{DIFFICULTIES.find((d) => d.id === difficulty)?.hint}</span></div>
             <div className="segmented five difficulty">
               {DIFFICULTIES.map((d) => (
@@ -215,11 +223,11 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
             </button>
             <p className="muted small">{mode === 'endless'
               ? `Endless: everyone gets ${ENDLESS_LIVES} lives. Skipping or running out of time costs one. Songs get harder until everyone’s out.`
-              : 'Each song lasts 45 seconds. Everyone hears the same song; the less you need to hear, the more it’s worth.'}</p>
+              : `You get ${timeLabel(roundSeconds, true)}. Everyone hears the same song; the less you need to hear, the more it’s worth.`}</p>
           </>
         ) : (
           <>
-            <p className="mp-mode-note">{mode === 'endless' ? `∞ Endless · ${ENDLESS_LIVES} lives each` : `${rounds} songs`} · {DIFFICULTIES.find((d) => d.id === difficulty)?.label} · {library === 'all' ? 'Full Catalog' : library === 'mine' ? 'Popular Picks' : 'Assorted Playlist'}</p>
+            <p className="mp-mode-note">{mode === 'endless' ? `∞ Endless · ${ENDLESS_LIVES} lives each` : `${rounds} songs`} · {DIFFICULTIES.find((d) => d.id === difficulty)?.label} · {library === 'all' ? 'Full Catalog' : library === 'mine' ? 'Popular Picks' : 'Assorted Playlist'} · {timeLabel(roundSeconds, true)}</p>
             <p className="mp-status"><span className="spinner small" /> Waiting for the host to start…</p>
           </>
         )}
@@ -327,10 +335,11 @@ function MultiRound({ catalog, song, nextSong, index, total, endsAt, players, an
   const hints = useMemo(() => hintsFor(song, catalog), [song, catalog])
   const [done, setDone] = useState<{ outcome: Outcome; points: number } | null>(null)
   const [preview, setPreview] = useState<Preview | null | 'loading'>('loading')
+  const unlimited = !Number.isFinite(endsAt)
   const [left, setLeft] = useState(() => Math.max(0, endsAt - performance.now()))
   const startedAt = useRef(performance.now())
   const excluded = useMemo(() => new Set(wrong), [wrong])
-  const total_ms = useRef(Math.max(1, endsAt - performance.now()))
+  const total_ms = useRef(unlimited ? 1 : Math.max(1, endsAt - performance.now()))
   const spectatingRef = useRef(false)
   spectatingRef.current = total === 0 && (lives ?? 0) <= 0
 
@@ -350,13 +359,14 @@ function MultiRound({ catalog, song, nextSong, index, total, endsAt, players, an
   }, [done, unlocked, wrong.length, hintsUsed, onAnswer])
 
   useEffect(() => {
+    if (unlimited) return
     const timer = window.setInterval(() => {
       const remaining = Math.max(0, endsAt - performance.now())
       setLeft(remaining)
       if (remaining <= 0) { window.clearInterval(timer); if (!spectatingRef.current) finish('timeout') }
     }, 200)
     return () => window.clearInterval(timer)
-  }, [endsAt, finish])
+  }, [endsAt, finish, unlimited])
 
   function guess(choice: Song) {
     if (isCorrectGuess(choice, song)) finish('named')
@@ -382,9 +392,9 @@ function MultiRound({ catalog, song, nextSong, index, total, endsAt, players, an
         )}
         <div className="round-meta">
           <span>Song {index + 1}{endless ? <> <span className={`badge d${endlessLevel(index)}`}>{DIFFICULTY[endlessLevel(index)]}</span></> : ` of ${total}`}</span>
-          <span className={`mp-clock${left < 10_000 ? ' hurry' : ''}`}>{Math.ceil(left / 1000)}s</span>
+          <span className={`mp-clock${!unlimited && left < 10_000 ? ' hurry' : ''}`}>{unlimited ? '∞ No time limit' : formatClock(Math.ceil(left / 1000))}</span>
         </div>
-        <div className="time-bar"><span style={{ transform: `scaleX(${ratio})` }} /></div>
+        {!unlimited && <div className="time-bar"><span style={{ transform: `scaleX(${ratio})` }} /></div>}
       </div>
 
       {spectating ? (
@@ -470,6 +480,17 @@ function Standings({ players, me, compact = false }: { players: PlayerView[]; me
       {compact && players.length > shown.length && <li className="more">+{players.length - shown.length} more</li>}
     </ol>
   )
+}
+
+/** 80 → "1:20", 0 → "∞"; long form for sentences. */
+function timeLabel(seconds: number, long = false): string {
+  if (!seconds) return long ? 'no time limit' : '∞'
+  const text = seconds >= 60 ? formatClock(seconds) : `${seconds}s`
+  return long ? `${text} per song` : text
+}
+
+function formatClock(seconds: number): string {
+  return seconds >= 60 ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}` : `${seconds}s`
 }
 
 /** A stable colour per name for avatars. */

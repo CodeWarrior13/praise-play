@@ -2,10 +2,26 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0b0820" />
-    <meta name="description" content="A daily song-guessing game celebrating Christian music." />
-    <title>Praise Play — Daily Song Challenge</title>
+    <meta name="description" content="Name the Christian song from 0.1 seconds. Solo runs, endless mode and multiplayer rooms." />
+    <link rel="manifest" href="./manifest-sanctuary.webmanifest" id="app-manifest" />
+    <link rel="icon" type="image/png" href="./icons/sanctuary-192.png" id="app-favicon" />
+    <link rel="apple-touch-icon" href="./icons/sanctuary-180.png" id="app-touch-icon" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Praise Play" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Praise Play · Name the Christian Song</title>
+    <script>
+      // Paint the saved theme's background before anything loads, so the intro never flashes white.
+      try {
+        var id = JSON.parse(localStorage.getItem('praise-play:v4:setting:theme') || '"sanctuary"')
+        var bg = { sanctuary: '#0b0820', aurora: '#03131a', ember: '#140505', ocean: '#040a1f', evergreen: '#03120b', gold: '#080807', dawn: '#fff6ef' }[id] || '#0b0820'
+        document.documentElement.style.background = bg
+        document.documentElement.dataset.boot = id
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

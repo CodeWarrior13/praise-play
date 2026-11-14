@@ -5,7 +5,7 @@ A Christian-music song-guessing game. Each song starts at **0.1 seconds** of aud
 ## How it plays
 
 - **Four ways to play:** a 5-song run, **Endless** (songs keep coming and get harder; skipping costs one of 3 lives), **Daily** (the same 5 songs for everyone), and **Friends** (private multiplayer rooms).
-- **Multiplayer:** the host creates a room and shares a 5-letter code or invite link (`?room=CODE`). Up to 30 players hear the same song at the same time, 45 seconds per song, scored like solo. The host picks the songs (**Full Catalog**, **Popular Picks** or **Assorted Playlist**), 5/10/15/20 songs or **Endless** (3 lives each; a skip or running out of time costs one; players who are out spectate; the game ends when everyone is out or the host ends it), and a difficulty: **Mixed** (hits to deep cuts), **Easy**, **Hard**, **Extreme** or **Impossible**. Invite friends with Copy code, Copy invite link, the phone share sheet, or a QR code (hidden until you open it). After each song everyone sees the answer, the round results and the leaderboard; the game ends with a podium, and the host can start another game with the same group. It runs peer-to-peer over WebRTC: the host's browser runs the room, PeerJS's free public broker introduces the players, and PeerJS's relay servers step in when networks block direct connections. No server or account is needed. To use your own broker, build with `VITE_PEER_HOST`, `VITE_PEER_PORT`, `VITE_PEER_PATH` and `VITE_PEER_SECURE`.
+- **Multiplayer:** the host creates a room and shares a 5-letter code or invite link (`?room=CODE`). Up to 30 players hear the same song at the same time, 45 seconds per song, scored like solo. The host picks the songs (**Full Catalog**, **Popular Picks** or **Assorted Playlist**), 5/10/15/20 songs or **Endless**, the time per song (10s up to unlimited, 1:20 by default) (3 lives each; a skip or running out of time costs one; players who are out spectate; the game ends when everyone is out or the host ends it), and a difficulty: **Mixed** (hits to deep cuts), **Easy**, **Hard**, **Extreme** or **Impossible**. Invite friends with Copy code, Copy invite link, the phone share sheet, or a QR code (hidden until you open it). After each song everyone sees the answer, the round results and the leaderboard; the game ends with a podium, and the host can start another game with the same group. It runs peer-to-peer over WebRTC: the host's browser runs the room, PeerJS's free public broker introduces the players, and PeerJS's relay servers step in when networks block direct connections. No server or account is needed. To use your own broker, build with `VITE_PEER_HOST`, `VITE_PEER_PORT`, `VITE_PEER_PATH` and `VITE_PEER_SECURE`.
 - **Runs of 5 songs**, ordered from best-known to least-known (Easy → Legend), scored out of 50,000. There's no daily limit.
 - **Unlocking more:** drag the logarithmic scrubber, tap the 0.1s, 0.5s, 1s and 3s buttons, or press +1s. The current "worth" updates as you go.
 - **Scoring:** 10,000 points at 0.1s, falling steeply at first and reaching 3,000 at the full 30s (`clipWorth` in `src/lib/scoring.ts`). Each wrong guess costs 500, and the song keeps going. Skip reveals the answer and scores 0.
@@ -24,6 +24,18 @@ Requires Node.js 20 or newer.
 ```bash
 npm install
 npm run dev
+```
+
+## Installable app
+
+Praise Play is a Progressive Web App. On Android and desktop Chrome/Edge a "Get the Praise Play app" sheet offers one-tap install; on iPhone/iPad it shows the Share → Add to Home Screen steps. Installed, it opens full screen with an animated intro in the player's theme colours.
+
+- `public/sw.js`: service worker (instant reopen; pages network-first so updates arrive right away).
+- `public/manifest-<theme>.webmanifest` and `public/icons/`: one manifest and icon set per theme. The tab icon and app colours switch with the theme; an installed app keeps the icon it was installed with.
+- Regenerate icons after adding or changing a theme:
+
+```bash
+python3 scripts/make-icons.py
 ```
 
 ## Putting it online

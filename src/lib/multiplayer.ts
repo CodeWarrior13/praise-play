@@ -14,7 +14,9 @@ import { buildRun, endlessSong } from './run'
 import { songPoints } from './scoring'
 
 export const MAX_PLAYERS = 30
-export const ROUND_MS = 45_000
+/** Time-per-song choices for the host, in seconds. 0 = unlimited. */
+export const ROUND_TIME_CHOICES = [10, 20, 30, 45, 60, 80, 120, 0]
+export const DEFAULT_ROUND_SECONDS = 80
 export const ENDLESS_LIVES = 3
 const GRACE_MS = 1_500
 const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -31,7 +33,8 @@ export type GameMode = 'set' | 'endless'
 export type Difficulty = 'mixed' | 'easy' | 'hard' | 'extreme' | 'impossible'
 /** Which part of the catalog the room plays: everything, Popular Picks, or the Assorted Playlist. */
 export type RoomLibrary = 'all' | 'mine' | 'playlist'
-export type Settings = { rounds: number; mode: GameMode; difficulty: Difficulty; library: RoomLibrary }
+/** roundSeconds: time to answer each song; 0 = no limit. */
+export type Settings = { rounds: number; mode: GameMode; difficulty: Difficulty; library: RoomLibrary; roundSeconds: number }
 
 /** Which slice of the pool (ranked best-known first) each difficulty draws from. */
 export const DIFFICULTIES: { id: Difficulty; label: string; hint: string; range: [number, number] }[] = [
@@ -54,7 +57,7 @@ export function poolForDifficulty(pool: Song[], difficulty: Difficulty): Song[] 
 export type ServerMessage =
   | { t: 'welcome'; you: string; code: string }
   | { t: 'lobby'; players: PlayerView[]; settings: Settings; phase: 'lobby' | 'playing' | 'ended' }
-  /** total is 0 in Endless. */
+  /** total is 0 in Endless; durationMs is 0 when there's no time limit. */
   | { t: 'round'; index: number; total: number; songId: string; nextSongId?: string; durationMs: number }
   | { t: 'status'; answered: string[] }
   | { t: 'reveal'; index: number; total: number; songId: string; results: RoundResult[]; standings: PlayerView[]; last: boolean }
@@ -117,7 +120,8 @@ export class HostRoom {
   private peer: PeerType
   private conns = new Map<string, DataConnection>()
   private players = new Map<string, PlayerView>()
-  private settings: Settings = { rounds: 5, mode: 'set', difficulty: 'mixed', library: 'all' }
+  private settings: Settings = { rounds: 5, mode: 'set', difficulty: 'mixed', library: 'all', roundSeconds: DEFAULT_ROUND_SECONDS }
+  private get roundMs() { return this.settings.roundSeconds * 1000 }
   private pool: Song[] = []
   private advancing = false
   private phase: 'lobby' | 'playing' | 'ended' = 'lobby'
@@ -196,7 +200,7 @@ export class HostRoom {
       // Joining mid-game: drop straight into the current song.
       if (this.phase === 'playing' && this.roundOpen) {
         const song = this.songs[this.index]
-        const left = Math.max(5_000, ROUND_MS - (performance.now() - this.roundStarted))
+        const left = this.roundMs ? Math.max(5_000, this.roundMs - (performance.now() - this.roundStarted)) : 0
         this.sendTo(id, { t: 'round', index: this.index, total: this.endless ? 0 : this.songs.length, songId: song.id, nextSongId: this.songs[this.index + 1]?.id, durationMs: left })
       }
     } else if (message.t === 'answer') {
@@ -294,9 +298,9 @@ export class HostRoom {
     this.roundOpen = true
     this.roundStarted = performance.now()
     const song = this.songs[this.index]
-    this.broadcast({ t: 'round', index: this.index, total: this.endless ? 0 : this.songs.length, songId: song.id, nextSongId: this.songs[this.index + 1]?.id, durationMs: ROUND_MS })
+    this.broadcast({ t: 'round', index: this.index, total: this.endless ? 0 : this.songs.length, songId: song.id, nextSongId: this.songs[this.index + 1]?.id, durationMs: this.roundMs })
     window.clearTimeout(this.roundTimer)
-    this.roundTimer = window.setTimeout(() => this.endRound(), ROUND_MS + GRACE_MS)
+    if (this.roundMs) this.roundTimer = window.setTimeout(() => this.endRound(), this.roundMs + GRACE_MS)
   }
 
   submit(id: string, answer: Omit<Answer, 'points'> & { index: number }) {
@@ -327,7 +331,7 @@ export class HostRoom {
         results.push({ id: player.id, name: player.name, outcome: 'skipped', points: 0, seconds: 0, wrong: 0, elapsed: 0, spectating: true })
         continue
       }
-      const answer = this.answers.get(player.id) ?? { outcome: 'timeout' as const, seconds: 30, wrong: 0, elapsed: ROUND_MS / 1000, points: 0 }
+      const answer = this.answers.get(player.id) ?? { outcome: 'timeout' as const, seconds: 30, wrong: 0, elapsed: this.settings.roundSeconds, points: 0 }
       player.score += answer.points
       let lostLife = false
       if (this.endless && answer.outcome !== 'named' && player.connected) {

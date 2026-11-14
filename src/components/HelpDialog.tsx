@@ -68,7 +68,7 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
           <div><strong>▶ Play</strong><span>{RUN_LENGTH} songs, easy to legendary, out of {formatPoints(MAX_POINTS * RUN_LENGTH)}.</span></div>
           <div><strong>∞ Endless</strong><span>Songs keep coming and get harder. 3 lives; each skip costs one.</span></div>
           <div><strong>☀ Daily</strong><span>The same 5 songs for everyone today. One try.</span></div>
-          <div><strong>👥 Friends</strong><span>Private room for up to 30 players. Share the code, everyone hears the same song, 45 seconds a round.</span></div>
+          <div><strong>👥 Friends</strong><span>Private room for up to 30 players. Share the code, everyone hears the same song. The host sets the time per song (10 seconds up to unlimited; 1:20 by default).</span></div>
         </div>
 
         <h3>Keyboard</h3>
