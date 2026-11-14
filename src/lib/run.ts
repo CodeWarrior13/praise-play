@@ -18,16 +18,25 @@ export type RunOptions = {
   library: Library
 }
 
-export const HIT_THRESHOLD = 35
-export const DEEP_THRESHOLD = 12
 export const MAX_ARTISTS = 60
 
 export const defaultOptions: RunOptions = { genres: [], artists: [], yearFrom: null, yearTo: null, popularity: 'all', library: 'all' }
 
-export function matchesPopularity(song: Song, popularity: Popularity): boolean {
-  if (popularity === 'hits') return song.popularity >= HIT_THRESHOLD
-  if (popularity === 'deep') return song.popularity < DEEP_THRESHOLD
-  return true
+/**
+ * Hits and Deep cuts are relative to the songs you've picked, so every
+ * combination has songs: Hits = the best-known 6% (at least 5 songs),
+ * Deep cuts = the less-known 55%. "Deep cuts of the Assorted Playlist" means
+ * the lesser-known songs on that playlist.
+ */
+export const HITS_SHARE = 0.06
+export const DEEP_SHARE = 0.55
+
+export function applyPopularity(songs: Song[], popularity: Popularity): Song[] {
+  if (popularity === 'all' || songs.length <= 5) return songs
+  const ranked = [...songs].sort((a, b) => b.popularity - a.popularity || a.trackId - b.trackId)
+  const share = popularity === 'hits' ? HITS_SHARE : DEEP_SHARE
+  const count = Math.min(ranked.length, Math.max(5, Math.ceil(ranked.length * share)))
+  return popularity === 'hits' ? ranked.slice(0, count) : ranked.slice(ranked.length - count)
 }
 
 export function filterSongs(catalog: Catalog, options: RunOptions, ignore?: 'genres' | 'artists'): Song[] {
@@ -37,7 +46,7 @@ export function filterSongs(catalog: Catalog, options: RunOptions, ignore?: 'gen
   const artists = new Set(options.artists)
   const wantsChristmas = options.genres.includes('christmas')
   const wantsInstrumental = options.genres.includes('instrumental')
-  return catalog.songs.filter((song) => {
+  const base = catalog.songs.filter((song) => {
     // Christmas and instrumental songs only appear when their genre is picked.
     if (ignore !== 'genres' && !wantsChristmas && song.genres.includes('christmas')) return false
     if (ignore !== 'genres' && !wantsInstrumental && song.genres.includes('instrumental')) return false
@@ -45,9 +54,9 @@ export function filterSongs(catalog: Catalog, options: RunOptions, ignore?: 'gen
     if (options.library === 'playlist' && !song.playlist) return false
     if (options.library === 'mine' && !song.mine) return false
     if (ignore !== 'artists' && artists.size && !artists.has(song.artist)) return false
-    if (yearFiltered && (!song.year || song.year < yearFrom || song.year > yearTo)) return false
-    return matchesPopularity(song, options.popularity)
+    return !(yearFiltered && (!song.year || song.year < yearFrom || song.year > yearTo))
   })
+  return applyPopularity(base, options.popularity)
 }
 
 /**

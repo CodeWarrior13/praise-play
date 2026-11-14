@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { installMode, onInstallChange } from '../lib/install'
 import { artUrl, type Catalog, type Song } from '../lib/catalog'
 import { normalize } from '../lib/daily'
-import { MAX_ARTISTS, defaultOptions, filterSongs, matchesPopularity, type Library, type Popularity, type RunOptions } from '../lib/run'
+import { MAX_ARTISTS, defaultOptions, filterSongs, type Library, type Popularity, type RunOptions } from '../lib/run'
 import { MAX_POINTS, RUN_LENGTH, WRONG_GUESS_PENALTY, clipWorth, formatPoints } from '../lib/scoring'
 import { loadSetting, saveSetting, type RunRecord, type Stats } from '../lib/storage'
 import { CountUp } from './Fx'
@@ -104,6 +104,13 @@ export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless,
           <button className="lb-link" onClick={onLeaderboard}>🏆 Global leaderboard</button>
           {canInstall && <button className="lb-link" onClick={onInstall}>📲 Get the app</button>}
         </div>
+        {pool.length === 0 && (
+          <div className="empty-pool" role="alert">
+            <strong>No songs match your Run options.</strong>
+            <span>Try fewer filters, or start fresh.</span>
+            <button className="primary" onClick={() => onOptions(defaultOptions)}>Reset options</button>
+          </div>
+        )}
         <p className="pool-count"><strong><CountUp value={pool.length} duration={500} /></strong> songs in the pool</p>
       </section>
 
@@ -130,7 +137,7 @@ export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless,
                   {POPULARITY.map((p) => (
                     <button key={p.id} className={options.popularity === p.id ? 'active' : ''} onClick={() => set({ popularity: p.id })} title={p.hint}>
                       {p.label}
-                      <small>{catalog.songs.filter((s) => matchesPopularity(s, p.id)).length.toLocaleString()}</small>
+                      <small>{filterSongs(catalog, { ...options, popularity: p.id }).length.toLocaleString()}</small>
                     </button>
                   ))}
                 </div>
