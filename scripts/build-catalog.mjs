@@ -66,32 +66,75 @@ const BLOCKED_ARTISTS = /\b(henrik|cbertis)\b/i
 const blocked = (track) => BLOCKED_ARTISTS.test(track.artistName ?? '') || BLOCKED_ARTISTS.test(track.trackName ?? '')
 const VERSION_WORDS = /\b(en vivo|ao vivo|en directo|versi[oó]n|acústico|acustico|reloaded|revisited|redux|reworked|rework|re-?recorded|re-?imagined|alternate|anthem|choir|orchestral|10th|20th|25th|live|feat\.?|ft\.?|featuring|with|version|edit|remaster(ed)?|radio|single|studio|acoustic|deluxe|bonus|mono|stereo|from|session|sessions|mix|recorded|anniversary|edition|reimagined|extended|unplugged|stripped|original|bonus track)\b/i
 
-/** Famous Christmas songs to include in the parked Christmas file (popularity sets their run difficulty). */
-const CHRISTMAS_EXTRAS = [
-  { title: 'Mary, Did You Know?', artist: 'Pentatonix', popularity: 95 },
-  { title: 'Little Drummer Boy', artist: 'Pentatonix', popularity: 90 },
-  { title: 'O Come, All Ye Faithful', artist: 'Pentatonix', popularity: 75 },
-  { title: 'Silent Night', artist: 'Pentatonix', popularity: 75 },
-  { title: 'Joy to the World', artist: 'Pentatonix', popularity: 65 },
-  { title: 'O Holy Night', artist: 'Pentatonix', popularity: 70 },
-  { title: 'Mary, Did You Know?', artist: 'CeCe Winans', popularity: 70 },
-  { title: 'Mary, Did You Know?', artist: 'Kenny Rogers', popularity: 65 },
-  { title: "Breath of Heaven (Mary's Song)", artist: 'Amy Grant', popularity: 75 },
-  { title: 'Light of the World', artist: 'Lauren Daigle', popularity: 75 },
-  { title: 'Noel', artist: 'Chris Tomlin', popularity: 80 },
-  { title: 'Joy to the World (Unspeakable Joy)', artist: 'Chris Tomlin', popularity: 70 },
-  { title: 'Emmanuel (Hallowed Manger Ground)', artist: 'Chris Tomlin', popularity: 55 },
-  { title: 'Christmas Offering', artist: 'Casting Crowns', popularity: 70 },
-  { title: 'Little Drummer Boy', artist: 'for KING & COUNTRY', popularity: 80 },
-  { title: 'O Holy Night', artist: 'Josh Groban', popularity: 85 },
-  { title: 'Do You Hear What I Hear?', artist: 'Whitney Houston', popularity: 80 },
+/**
+ * The Christmas list: famous songs only, each ONCE, in its best-known version.
+ * Popularity (1–100) sets how early a song can come up in a run.
+ * Covers by other artists are deliberately left out.
+ */
+const CHRISTMAS_SONGS = [
+  // The biggest Christmas songs of all time
+  { title: 'All I Want for Christmas Is You', artist: 'Mariah Carey', popularity: 100 },
+  { title: 'White Christmas', artist: 'Bing Crosby', popularity: 96 },
+  { title: 'Jingle Bell Rock', artist: 'Bobby Helms', popularity: 95 },
+  { title: "Rockin' Around the Christmas Tree", artist: 'Brenda Lee', popularity: 95 },
+  { title: 'Last Christmas', artist: 'Wham!', popularity: 94 },
+  { title: "It's the Most Wonderful Time of the Year", artist: 'Andy Williams', popularity: 93 },
+  { title: 'A Holly Jolly Christmas', artist: 'Burl Ives', popularity: 92 },
+  { title: 'Feliz Navidad', artist: 'José Feliciano', popularity: 92 },
+  { title: "Let It Snow! Let It Snow! Let It Snow!", artist: 'Dean Martin', popularity: 91 },
+  { title: 'Sleigh Ride', artist: 'The Ronettes', popularity: 90 },
+  { title: 'The Christmas Song', artist: 'Nat "King" Cole', popularity: 90 },
+  { title: "It's Beginning to Look a Lot Like Christmas", artist: 'Michael Bublé', popularity: 90 },
+  { title: 'Have Yourself a Merry Little Christmas', artist: 'Frank Sinatra', popularity: 86 },
+  { title: 'Rudolph the Red-Nosed Reindeer', artist: 'Gene Autry', popularity: 88 },
+  { title: 'Blue Christmas', artist: 'Elvis Presley', popularity: 85 },
+  { title: "Baby, It's Cold Outside", artist: 'Dean Martin', popularity: 84 },
+  { title: 'Santa Tell Me', artist: 'Ariana Grande', popularity: 86 },
+  { title: 'Underneath the Tree', artist: 'Kelly Clarkson', popularity: 86 },
+  { title: 'Mistletoe', artist: 'Justin Bieber', popularity: 85 },
+  { title: 'Wonderful Christmastime', artist: 'Paul McCartney', popularity: 84 },
+  { title: 'Happy Xmas (War Is Over)', artist: 'John Lennon', popularity: 82 },
+  { title: 'Christmas (Baby Please Come Home)', artist: 'Darlene Love', popularity: 82 },
+  { title: 'Run Rudolph Run', artist: 'Chuck Berry', popularity: 82 },
+  { title: 'Santa Claus Is Comin\' to Town', artist: 'The Jackson 5', popularity: 80 },
+  { title: 'Little Saint Nick', artist: 'The Beach Boys', popularity: 80 },
+  { title: 'Santa Baby', artist: 'Eartha Kitt', popularity: 80 },
+  { title: "Do They Know It's Christmas?", artist: 'Band Aid', popularity: 78 },
+  { title: "You're a Mean One, Mr. Grinch", artist: 'Thurl Ravenscroft', popularity: 80 },
+  { title: 'Jingle Bells', artist: 'Frank Sinatra', popularity: 82 },
+  { title: 'Frosty the Snowman', artist: 'Gene Autry', popularity: 78 },
+  { title: 'Here Comes Santa Claus', artist: 'Gene Autry', popularity: 76 },
+  { title: 'Silver Bells', artist: 'Bing Crosby', popularity: 74 },
+  { title: "I'll Be Home for Christmas", artist: 'Bing Crosby', popularity: 74 },
+  { title: 'Winter Wonderland', artist: 'Darlene Love', popularity: 70 },
+  { title: 'I Want a Hippopotamus for Christmas', artist: 'Gayla Peevey', popularity: 78 },
+  { title: 'This Christmas', artist: 'Donny Hathaway', popularity: 74 },
+  { title: 'Someday at Christmas', artist: 'Stevie Wonder', popularity: 66 },
+  { title: 'Step Into Christmas', artist: 'Elton John', popularity: 72 },
+  { title: 'Driving Home for Christmas', artist: 'Chris Rea', popularity: 70 },
+  { title: 'Merry Christmas Darling', artist: 'Carpenters', popularity: 66 },
+  { title: 'Christmas Time Is Here', artist: 'Vince Guaraldi Trio', popularity: 70 },
+  { title: 'Mele Kalikimaka', artist: 'Bing Crosby', popularity: 62 },
+  { title: 'Snowman', artist: 'Sia', popularity: 74 },
+  { title: 'Christmas Tree Farm', artist: 'Taylor Swift', popularity: 70 },
+  { title: 'Grown-Up Christmas List', artist: 'Amy Grant', popularity: 62 },
+  // Pentatonix
+  { title: 'Mary, Did You Know?', artist: 'Pentatonix', popularity: 92 },
+  { title: 'Little Drummer Boy', artist: 'Pentatonix', popularity: 88 },
+  { title: 'Hallelujah', artist: 'Pentatonix', popularity: 84 },
+  { title: 'Carol of the Bells', artist: 'Pentatonix', popularity: 80 },
+  { title: 'Silent Night', artist: 'Pentatonix', popularity: 74 },
+  { title: 'O Come, All Ye Faithful', artist: 'Pentatonix', popularity: 70 },
+  { title: 'Hark! The Herald Angels Sing', artist: 'Pentatonix', popularity: 62 },
+  // Christmas worship & gospel
+  { title: 'O Holy Night', artist: 'Josh Groban', popularity: 80 },
+  { title: 'Do You Hear What I Hear?', artist: 'Whitney Houston', popularity: 76 },
   { title: 'Joy to the World', artist: 'Whitney Houston', popularity: 70 },
-  { title: 'Go Tell It on the Mountain', artist: 'Mahalia Jackson', popularity: 60 },
-  { title: 'Christmas Is All in the Heart', artist: 'Steven Curtis Chapman', popularity: 50 },
-  { title: 'Winter Snow', artist: 'Audrey Assad', popularity: 45 },
-  { title: 'Born Is the King', artist: 'Hillsong Worship', popularity: 60 },
-  { title: 'Hark! The Herald Angels Sing', artist: 'Pentatonix', popularity: 60 },
-  { title: 'Go Tell It on the Mountain', artist: 'for KING & COUNTRY', popularity: 50 },
+  { title: "Breath of Heaven (Mary's Song)", artist: 'Amy Grant', popularity: 70 },
+  { title: 'Noel', artist: 'Chris Tomlin', popularity: 72 },
+  { title: 'Light of the World', artist: 'Lauren Daigle', popularity: 68 },
+  { title: 'Christmas Offering', artist: 'Casting Crowns', popularity: 64 },
+  { title: 'Go Tell It on the Mountain', artist: 'Mahalia Jackson', popularity: 58 },
 ]
 
 const CHRISTMAS = /christmas|silent night|holy night|joy to the world|hark the herald|come all ye faithful|go tell it on the mountain|little drummer boy|mary,? did you know|away in a manger|what child is this|angels we have heard|god rest ye|first no[eë]l|o come,? o come,? emmanuel|carol of the bells|o little town of bethlehem|it came upon the midnight|we three kings|feliz navidad|white christmas|noel\b/i
@@ -155,6 +198,20 @@ function creditMatches(artistName, rosterName) {
 function creditedAnywhere(track, name) {
   const n = normName(name).replace(/^the /, '')
   return normName(track.artistName ?? '').includes(n) || normName(track.trackName ?? '').includes(n)
+}
+
+function editDistance(a, b) {
+  const row = Array.from({ length: b.length + 1 }, (_, i) => i)
+  for (let i = 1; i <= a.length; i++) {
+    let prev = row[0]
+    row[0] = i
+    for (let j = 1; j <= b.length; j++) {
+      const temp = row[j]
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1))
+      prev = temp
+    }
+  }
+  return row[b.length]
 }
 
 /** Spotify and Apple sometimes title a song slightly differently ("REST" vs "Rested"). */
@@ -348,23 +405,40 @@ async function main() {
   // Famous Christmas songs, looked up one by one (they go to the parked Christmas file).
   let extrasFound = 0
   const extrasMissing = []
-  for (const extra of CHRISTMAS_EXTRAS) {
+  for (const extra of CHRISTMAS_SONGS) {
     const key = normTitle(cleanTitle(extra.title))
     const params = new URLSearchParams({ term: `${cleanTitle(extra.title)} ${extra.artist}`, entity: 'song', limit: '25', country: 'US' })
     const { data } = await cachedGet(`https://itunes.apple.com/search?${params}`, slug(`${extra.title} ${extra.artist}`, '.xmas'))
     const usable = (data.results ?? []).filter((r) => r.kind === 'song' && r.previewUrl && r.trackExplicitness !== 'explicit' && !/karaoke|instrumental|backing track/i.test(r.trackName))
-    const track = usable.find((r) => creditedAnywhere(r, extra.artist) && titlesClose(normTitle(cleanTitle(r.trackName)), key))
+    // Subtitles ("The Christmas Song (Merry Christmas to You)") and spellings ("Comin'" / "Coming") still match.
+    const bare = (title) => normTitle(cleanTitle(title).replace(/\s*[([].*?[)\]]/g, ''))
+    const near = (a, b) => titlesClose(a, b) || editDistance(a, b) <= 2
+    const track = usable.find((r) => creditedAnywhere(r, extra.artist) && (near(normTitle(cleanTitle(r.trackName)), key) || near(bare(r.trackName), bare(extra.title))))
     if (!track) { extrasMissing.push(`${extra.title} — ${extra.artist}`); continue }
     extrasFound += 1
-    if (seenTracks.has(track.trackId)) continue
+    if (seenTracks.has(track.trackId)) {
+      // Already pulled in from the artist's own catalog: move it onto the Christmas list.
+      const entry = entries.find((e) => e.track.trackId === track.trackId)
+      if (entry) Object.assign(entry, { christmas: true, popularity: extra.popularity, genres: ['christmas'] })
+      continue
+    }
     seenTracks.add(track.trackId)
     const artistIndex = artistIndexByName.get(normName(extra.artist)) ?? addArtist(extra.artist, ['christmas'], false)
     entries.push({ track, title: cleanTitle(track.trackName), key: normTitle(cleanTitle(track.trackName)), year: Number(track.releaseDate?.slice(0, 4)) || undefined, artistIndex, popularity: extra.popularity, genres: ['christmas'], playlist: false, christmas: true })
   }
 
   const isChristmas = (entry) => entry.christmas || CHRISTMAS.test(entry.title) || CHRISTMAS.test(entry.track.collectionName ?? '')
-  const mainEntries = withChristmas ? entries : entries.filter((entry) => !isChristmas(entry))
-  const christmasEntries = entries.filter(isChristmas)
+  // Christmas = the hand-picked list only (one best-known version per song).
+  // Christmas tracks found in artists' own catalogs are dropped so covers never pile up.
+  // One version per song: if two picks share a title, keep the most popular.
+  const christmasByTitle = new Map()
+  for (const entry of entries.filter((e) => e.christmas).sort((a, b) => b.popularity - a.popularity)) {
+    const bare = normTitle(entry.title.replace(/\s*[([].*?[)\]]/g, ''))
+    if (!christmasByTitle.has(bare)) christmasByTitle.set(bare, entry)
+  }
+  const christmasEntries = [...christmasByTitle.values()]
+  const nonChristmas = entries.filter((entry) => !isChristmas(entry))
+  const mainEntries = withChristmas ? [...nonChristmas, ...christmasEntries] : nonChristmas
 
   /** Builds one catalog file from a set of entries, keeping only the artists and covers it uses. */
   function makeCatalog(list, christmas) {
@@ -406,8 +480,8 @@ async function main() {
   console.log(`\nPlaylist songs: ${matched} already in catalog, ${added} added, ${missing.length} not found on Apple Music`)
   if (missing.length) console.log(`  Not found:\n  ${missing.join('\n  ')}`)
   console.log(`Wrote ${catalog.songs.length} songs by ${catalog.artists.length} artists (${catalog.arts.length} album covers) to public/catalog.json`)
-  console.log(`Parked ${christmasCatalog.songs.length} Christmas songs by ${christmasCatalog.artists.length} artists in seasonal/christmas.json (famous extras found: ${extrasFound}/${CHRISTMAS_EXTRAS.length})`)
-  if (extrasMissing.length) console.log(`  Christmas extras not found:\n  ${extrasMissing.join('\n  ')}`)
+  console.log(`Parked ${christmasCatalog.songs.length} Christmas songs by ${christmasCatalog.artists.length} artists in seasonal/christmas.json (${extrasFound} of ${CHRISTMAS_SONGS.length} picks found)`)
+  if (extrasMissing.length) console.log(`  Christmas picks not found:\n  ${extrasMissing.join('\n  ')}`)
   const empty = catalogArtists.filter((a) => !catalog.artists.includes(a) && !christmasCatalog.artists.includes(a)).map((a) => a.name)
   if (empty.length) console.log(`No songs found for: ${empty.join(', ')}`)
 }
