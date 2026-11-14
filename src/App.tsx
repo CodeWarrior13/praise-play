@@ -16,6 +16,7 @@ import { Multiplayer } from './components/Multiplayer'
 import { LeaderboardDialog } from './components/Leaderboard'
 import { Splash } from './components/Splash'
 import { InstallPrompt } from './components/InstallPrompt'
+import { ShareButton } from './components/ShareButton'
 import { onShortcut, typingInField } from './lib/keys'
 import { saveSetting } from './lib/storage'
 
@@ -251,6 +252,7 @@ export default function App() {
             <span>praise<b>play</b></span>
           </button>
           <div className="top-actions">
+            <ShareButton />
             <button className="icon-button" onClick={() => setBoardOpen(true)} aria-label="Leaderboard" title="Leaderboard">🏆</button>
             <button className="icon-button" onClick={() => setHelpOpen(true)} aria-label="How to play (H)" title="How to play (H)">?</button>
             <ThemePicker value={themeId} onChange={changeTheme} />
