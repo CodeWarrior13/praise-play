@@ -81,7 +81,7 @@ Responses are cached in `scripts/.cache/`, so re-runs only fetch new artists (`-
 
 ## Themes
 
-The palette button in the header switches between seven themes (Sanctuary, Aurora, Ember, Deep Water, Evergreen, Midnight Gold, Dawn). The choice is remembered on the device. Themes are just sets of CSS variables in `src/lib/theme.ts`, so adding one is a single object.
+The palette button in the header switches between eleven themes (Sanctuary, Aurora, Ember, Deep Water, Evergreen, Midnight Gold, Royal, Rose Gold, Galaxy, Arctic, Dawn). The choice is remembered on the device. Themes are just sets of CSS variables in `src/lib/theme.ts`, so adding one is a single object.
 
 ## Known limits
 
