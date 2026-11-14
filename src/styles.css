@@ -597,7 +597,8 @@ body[data-overlay] .page > *:not(.overlay) { filter: saturate(.7); transition: f
 /* ---------- Install sheet ---------- */
 .home-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 14px; }
 .home-links .lb-link { margin: 0; }
-.install-sheet { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 60; max-width: 520px; margin: 0 auto; display: grid; grid-template-columns: auto 1fr; gap: 12px 14px; align-items: center; padding: 14px; border-radius: 22px; background: var(--bg-2); border: 1px solid var(--line-strong); box-shadow: 0 30px 80px -20px rgba(0,0,0,.75); animation: sheetUp .55s var(--spring) both; }
+/* Sits above the bottom-right "Powered by Netlify" badge (about 64px tall) so the buttons stay tappable. */
+.install-sheet { position: fixed; left: 12px; right: 12px; bottom: calc(80px + env(safe-area-inset-bottom)); z-index: 60; max-width: 520px; margin: 0 auto; display: grid; grid-template-columns: auto 1fr; gap: 12px 14px; align-items: center; padding: 14px; border-radius: 22px; background: var(--bg-2); border: 1px solid var(--line-strong); box-shadow: 0 30px 80px -20px rgba(0,0,0,.75); animation: sheetUp .55s var(--spring) both; }
 @keyframes sheetUp { from { opacity: 0; transform: translateY(40px) scale(.96); } }
 .install-icon { width: 64px; height: 64px; border-radius: 16px; box-shadow: 0 10px 24px -10px var(--accent-b); }
 .install-text { display: grid; gap: 3px; font-size: 13px; color: var(--muted); font-weight: 600; line-height: 1.45; }
