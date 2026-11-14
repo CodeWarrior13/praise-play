@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { artUrl, type Catalog, type Song } from '../lib/catalog'
 import { isCorrectGuess } from '../lib/daily'
 import { getPreview, prefetchPreviews, type Preview } from '../lib/preview'
-import { filterSongs, type RunOptions } from '../lib/run'
+import { defaultOptions, filterSongs, type RunOptions } from '../lib/run'
 import { MIN_CLIP, WRONG_GUESS_PENALTY, formatPoints, formatSeconds, hintPenalty, songPoints } from '../lib/scoring'
 import { hintsFor } from '../lib/hints'
 import { HintBox } from './HintBox'
 import { loadSetting, saveSetting } from '../lib/storage'
-import { ClientRoom, DIFFICULTIES, ENDLESS_LIVES, HostRoom, MAX_PLAYERS, cleanCode, cleanName, type Difficulty, type GameMode, type Outcome, type PlayerView, type RoundResult, type ServerMessage } from '../lib/multiplayer'
+import { ClientRoom, DIFFICULTIES, ENDLESS_LIVES, HostRoom, MAX_PLAYERS, cleanCode, cleanName, type Difficulty, type GameMode, type RoomLibrary, type Outcome, type PlayerView, type RoundResult, type ServerMessage } from '../lib/multiplayer'
 import { endlessLevel } from '../lib/run'
 import { DIFFICULTY } from '../lib/scoring'
 import qrcode from 'qrcode-generator'
@@ -39,12 +39,20 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
   const [rounds, setRounds] = useState(5)
   const [mode, setMode] = useState<GameMode>('set')
   const [difficulty, setDifficulty] = useState<Difficulty>('mixed')
+  const [library, setLibrary] = useState<RoomLibrary>('all')
   const [answered, setAnswered] = useState<string[]>([])
   const [starting, setStarting] = useState(false)
   const host = useRef<HostRoom | null>(null)
   const client = useRef<ClientRoom | null>(null)
   const isHost = me === 'host'
-  const pool = useMemo(() => filterSongs(catalog, options), [catalog, options])
+  // The room picks its own library in the lobby; Run options from the home screen don't apply.
+  void options
+  const libraryCounts = useMemo(() => ({
+    all: filterSongs(catalog, defaultOptions).length,
+    mine: filterSongs(catalog, { ...defaultOptions, library: 'mine' }).length,
+    playlist: filterSongs(catalog, { ...defaultOptions, library: 'playlist' }).length,
+  }), [catalog])
+  const pool = useMemo(() => filterSongs(catalog, { ...defaultOptions, library }), [catalog, library])
 
   const onMessage = useCallback((message: ServerMessage) => {
     switch (message.t) {
@@ -54,6 +62,7 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
         setRounds(message.settings.rounds)
         setMode(message.settings.mode)
         setDifficulty(message.settings.difficulty)
+        setLibrary(message.settings.library ?? 'all')
         if (message.phase === 'lobby') setView((v) => (v.phase === 'end' || v.phase === 'connecting' || v.phase === 'lobby' ? { phase: 'lobby' } : v))
         break
       case 'round':
@@ -146,7 +155,7 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
         <div className="mp-choices">
           <div className="mp-choice">
             <strong>Host a room</strong>
-            <span>Songs come from your current Run options ({pool.length.toLocaleString()} songs).</span>
+            <span>You’ll pick the songs, game length and difficulty in the room.</span>
             <button className="primary shine" onClick={create} disabled={busy || !name.trim()}>Create room</button>
           </div>
           <div className="mp-choice">
@@ -187,6 +196,14 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
               {ROUND_CHOICES.map((n) => <button key={n} className={mode === 'set' && rounds === n ? 'active' : ''} onClick={() => host.current?.setSettings({ rounds: n, mode: 'set' })}>{n}<small>songs</small></button>)}
               <button className={mode === 'endless' ? 'active' : ''} onClick={() => host.current?.setSettings({ mode: 'endless' })}>∞<small>Endless</small></button>
             </div>
+            <div className="option-label"><span>Songs</span></div>
+            <div className="segmented three library room-library">
+              {([['all', 'Full Catalog', '◎'], ['mine', 'Popular Picks', '★'], ['playlist', 'Assorted Playlist', '✦']] as [RoomLibrary, string, string][]).map(([id, label, icon]) => (
+                <button key={id} className={library === id ? 'active' : ''} onClick={() => host.current?.setSettings({ library: id })}>
+                  <span className="lib-icon" aria-hidden="true">{icon}</span>{label}<small>{libraryCounts[id].toLocaleString()}</small>
+                </button>
+              ))}
+            </div>
             <div className="option-label"><span>Difficulty</span><span className="diff-hint">{DIFFICULTIES.find((d) => d.id === difficulty)?.hint}</span></div>
             <div className="segmented five difficulty">
               {DIFFICULTIES.map((d) => (
@@ -202,7 +219,7 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
           </>
         ) : (
           <>
-            <p className="mp-mode-note">{mode === 'endless' ? `∞ Endless · ${ENDLESS_LIVES} lives each` : `${rounds} songs`} · {DIFFICULTIES.find((d) => d.id === difficulty)?.label}</p>
+            <p className="mp-mode-note">{mode === 'endless' ? `∞ Endless · ${ENDLESS_LIVES} lives each` : `${rounds} songs`} · {DIFFICULTIES.find((d) => d.id === difficulty)?.label} · {library === 'all' ? 'Full Catalog' : library === 'mine' ? 'Popular Picks' : 'Assorted Playlist'}</p>
             <p className="mp-status"><span className="spinner small" /> Waiting for the host to start…</p>
           </>
         )}
@@ -377,7 +394,7 @@ function MultiRound({ catalog, song, nextSong, index, total, endsAt, players, an
         </div>
       ) : !done ? (
         <div className="round-body">
-          <ClipPlayer key={song.id} preview={preview} startSeconds={0} unlocked={unlocked} onUnlock={setUnlocked} penalty={wrong.length * WRONG_GUESS_PENALTY + hintPenalty(hintsUsed)} hotkeys onAudioError={() => setPreview(null)} />
+          <ClipPlayer key={song.id} preview={preview} startSeconds={preview && preview !== 'loading' ? preview.startSeconds ?? 0 : 0} unlocked={unlocked} onUnlock={setUnlocked} penalty={wrong.length * WRONG_GUESS_PENALTY + hintPenalty(hintsUsed)} hotkeys onAudioError={() => setPreview(null)} />
           {preview === null && <p className="notice">This song’s audio didn’t load for you. Skip it; you won’t be the only one.</p>}
           <HintBox hints={hints} used={hintsUsed} onTake={() => setHintsUsed((n) => n + 1)} />
           <GuessBox catalog={catalog} excluded={excluded} onGuess={guess} onSkip={() => finish('skipped')} skipLabel={endless ? 'Skip −♥' : 'Skip'} shake={wrong.length} />

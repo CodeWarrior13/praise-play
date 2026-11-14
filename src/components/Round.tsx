@@ -130,7 +130,7 @@ export function Round({ catalog, song, nextSong, index, total, level, runScore, 
           <ClipPlayer
             key={song.id}
             preview={preview}
-            startSeconds={0}
+            startSeconds={preview && preview !== 'loading' ? preview.startSeconds ?? 0 : 0}
             unlocked={unlocked}
             onUnlock={setUnlocked}
             penalty={wrong.length * WRONG_GUESS_PENALTY + hintPenalty(hintsUsed)}

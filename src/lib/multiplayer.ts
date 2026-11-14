@@ -29,7 +29,9 @@ export type RoundResult = { id: string; name: string; outcome: Outcome; points: 
 
 export type GameMode = 'set' | 'endless'
 export type Difficulty = 'mixed' | 'easy' | 'hard' | 'extreme' | 'impossible'
-export type Settings = { rounds: number; mode: GameMode; difficulty: Difficulty }
+/** Which part of the catalog the room plays: everything, Popular Picks, or the Assorted Playlist. */
+export type RoomLibrary = 'all' | 'mine' | 'playlist'
+export type Settings = { rounds: number; mode: GameMode; difficulty: Difficulty; library: RoomLibrary }
 
 /** Which slice of the pool (ranked best-known first) each difficulty draws from. */
 export const DIFFICULTIES: { id: Difficulty; label: string; hint: string; range: [number, number] }[] = [
@@ -115,7 +117,7 @@ export class HostRoom {
   private peer: PeerType
   private conns = new Map<string, DataConnection>()
   private players = new Map<string, PlayerView>()
-  private settings: Settings = { rounds: 5, mode: 'set', difficulty: 'mixed' }
+  private settings: Settings = { rounds: 5, mode: 'set', difficulty: 'mixed', library: 'all' }
   private pool: Song[] = []
   private advancing = false
   private phase: 'lobby' | 'playing' | 'ended' = 'lobby'

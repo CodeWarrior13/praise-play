@@ -1,4 +1,5 @@
 import type { Song } from './catalog'
+import { findOnset } from './onset'
 
 export type Preview = {
   audioUrl: string
@@ -7,6 +8,8 @@ export type Preview = {
   trackUrl?: string
   album?: string
   year?: number
+  /** Where the music actually starts (seconds), skipping a silent or near-silent intro. */
+  startSeconds?: number
 }
 
 type ItunesTrack = {
@@ -62,6 +65,28 @@ function toPreview(track: ItunesTrack): Preview | null {
   }
 }
 
+type AudioCtor = new (channels: number, length: number, sampleRate: number) => OfflineAudioContext
+
+/**
+ * Downloads the preview once, works out where the music starts, and hands the
+ * player a local copy so it doesn't download the file a second time.
+ * If anything fails, the original URL is used from the start.
+ */
+async function withOnset(preview: Preview): Promise<Preview> {
+  try {
+    const Ctx = (window.OfflineAudioContext ?? (window as unknown as { webkitOfflineAudioContext?: AudioCtor }).webkitOfflineAudioContext) as AudioCtor | undefined
+    if (!Ctx) return preview
+    const response = await fetch(preview.audioUrl)
+    if (!response.ok) return preview
+    const bytes = await response.arrayBuffer()
+    const local = URL.createObjectURL(new Blob([bytes], { type: 'audio/mp4' }))
+    const decoded = await new Ctx(1, 1, 22050).decodeAudioData(bytes.slice(0))
+    return { ...preview, audioUrl: local, startSeconds: findOnset(decoded.getChannelData(0), decoded.sampleRate) }
+  } catch {
+    return preview
+  }
+}
+
 /** Looks up previews for several songs in a single request (one per run). */
 export function prefetchPreviews(songs: Song[]) {
   const missing = songs.filter((song) => !cache.has(song.id))
@@ -72,7 +97,8 @@ export function prefetchPreviews(songs: Song[]) {
       song.id,
       batch.then((tracks) => {
         const track = tracks.find((t) => t.trackId === song.trackId)
-        return track ? toPreview(track) : null
+        const preview = track ? toPreview(track) : null
+        return preview ? withOnset(preview) : null
       }),
     )
   }

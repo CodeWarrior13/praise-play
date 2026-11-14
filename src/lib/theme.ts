@@ -67,6 +67,19 @@ export const themes: Theme[] = [
     },
   },
   {
+    id: 'evergreen',
+    name: 'Evergreen',
+    swatch: ['#04140c', '#3ddc84', '#c6f432'],
+    vars: {
+      '--bg': '#03120b', '--bg-2': '#082316', '--surface': 'rgba(255,255,255,.05)', '--surface-2': 'rgba(255,255,255,.085)',
+      '--line': 'rgba(170,255,200,.12)', '--line-strong': 'rgba(170,255,200,.24)',
+      '--text': '#f0fff5', '--muted': '#a3c9b1', '--faint': '#6d947c',
+      '--accent-a': '#c6f432', '--accent-b': '#1fbf75', '--accent': '#3ddc84', '--on-accent': '#022012',
+      '--glow-1': '#0f9d58', '--glow-2': '#7ad321', '--glow-3': '#00b38f',
+      '--good': '#7cf0a0', '--bad': '#ff7a7a',
+    },
+  },
+  {
     id: 'gold',
     name: 'Midnight Gold',
     swatch: ['#0a0a0a', '#e9c46a', '#fff1c1'],
