@@ -66,11 +66,6 @@ export function filterSongs(catalog: Catalog, options: RunOptions, ignore?: 'gen
  */
 const BAND_EDGES = [0, 0.025, 0.1, 0.25, 0.55, 1]
 
-/**
- * Ranks the pool from best-known to least-known, splits it into difficulty bands
- * and draws one song from each, so every run starts easy and ends hard.
- * Never repeats an artist within a run when the pool allows it.
- */
 /** Position along the difficulty curve (0 = easiest, 1 = hardest) → share of the ranked pool. */
 function edgeAt(f: number): number {
   const x = Math.min(1, Math.max(0, f)) * (BAND_EDGES.length - 1)
@@ -78,19 +73,49 @@ function edgeAt(f: number): number {
   return BAND_EDGES[i] + (BAND_EDGES[i + 1] - BAND_EDGES[i]) * (x - i)
 }
 
-export function buildRun(pool: Song[], random: () => number = Math.random, size: number = RUN_LENGTH): Song[] {
+/** Every slot draws from at least this many songs, so small pools still vary. */
+const MIN_BAND = 8
+
+/** The [start, end) slice of a ranked pool for one difficulty band, widened to MIN_BAND. */
+function bandSlice(total: number, from: number, to: number): [number, number] {
+  let start = Math.min(Math.floor(from * total), Math.max(0, total - 1))
+  let end = Math.max(start + 1, Math.floor(to * total))
+  const want = Math.min(total, MIN_BAND)
+  if (end - start < want) {
+    const extra = want - (end - start)
+    start = Math.max(0, start - Math.floor(extra / 2))
+    end = Math.min(total, start + want)
+    start = Math.max(0, end - want)
+  }
+  return [start, end]
+}
+
+/** Prefer songs not heard recently; fall back gracefully when everything has been. */
+function pickFresh(choices: Song[], avoid: Set<string>, random: () => number): Song | undefined {
+  const unheard = choices.filter((song) => !avoid.has(song.id))
+  const list = unheard.length ? unheard : choices
+  return list[Math.floor(random() * list.length)]
+}
+
+/**
+ * Ranks the pool from best-known to least-known, splits it into difficulty bands
+ * and draws one song at random from each, so every run starts easy and ends hard.
+ * Never repeats an artist within a run when the pool allows it, and steers
+ * around `avoid` (songs heard recently, including the whole previous game).
+ */
+export function buildRun(pool: Song[], random: () => number = Math.random, size: number = RUN_LENGTH, avoid: Set<string> = new Set()): Song[] {
   const ranked = [...pool].sort((a, b) => b.popularity - a.popularity || a.trackId - b.trackId)
   const length = Math.min(size, ranked.length)
   const artistCount = new Set(pool.map((song) => song.artist)).size
+  const edges = Array.from({ length: length + 1 }, (_, i) => edgeAt(i / length))
   const picks: Song[] = []
   for (let band = 0; band < length; band++) {
-    const edges = Array.from({ length: length + 1 }, (_, i) => edgeAt(i / length))
-    const start = Math.min(Math.floor(edges[band] * ranked.length), ranked.length - 1)
-    const end = Math.max(start + 1, Math.floor(edges[band + 1] * ranked.length))
-    const slice = ranked.slice(start, end)
-    const fresh = artistCount >= length ? slice.filter((song) => !picks.some((p) => p.artist === song.artist)) : slice
-    const choices = (fresh.length ? fresh : slice).filter((song) => !picks.includes(song))
-    picks.push(choices[Math.floor(random() * choices.length)] ?? slice[0])
+    const [start, end] = bandSlice(ranked.length, edges[band], edges[band + 1])
+    const slice = ranked.slice(start, end).filter((song) => !picks.includes(song))
+    const pool2 = slice.length ? slice : ranked.filter((song) => !picks.includes(song))
+    const fresh = artistCount >= length ? pool2.filter((song) => !picks.some((p) => p.artist === song.artist)) : pool2
+    const pick = pickFresh(fresh.length ? fresh : pool2, avoid, random)
+    if (pick) picks.push(pick)
   }
   return picks
 }
@@ -99,14 +124,13 @@ export function buildRun(pool: Song[], random: () => number = Math.random, size:
  * Endless mode: the nth song comes from a difficulty level that rises every few
  * songs, drawn from the same ranked bands as a normal run.
  */
-export function endlessSong(pool: Song[], n: number, played: Set<string>): Song | undefined {
+export function endlessSong(pool: Song[], n: number, played: Set<string>, avoid: Set<string> = new Set()): Song | undefined {
   const ranked = [...pool].sort((a, b) => b.popularity - a.popularity || a.trackId - b.trackId)
   const level = Math.min(BAND_EDGES.length - 2, Math.floor(n / 3))
-  const start = Math.floor(BAND_EDGES[level] * ranked.length)
-  const end = Math.max(start + 1, Math.floor(BAND_EDGES[level + 1] * ranked.length))
+  const [start, end] = bandSlice(ranked.length, BAND_EDGES[level], BAND_EDGES[level + 1])
   let choices = ranked.slice(start, end).filter((song) => !played.has(song.id))
   if (!choices.length) choices = ranked.filter((song) => !played.has(song.id))
-  return choices[Math.floor(Math.random() * choices.length)]
+  return pickFresh(choices, avoid, Math.random)
 }
 
 export function endlessLevel(n: number): number {

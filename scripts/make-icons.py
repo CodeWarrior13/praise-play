@@ -59,6 +59,8 @@ def draw_icon(theme, full_bleed=False):
     s = SIZE
     bg, bg2 = hex_rgb(theme['bg']), hex_rgb(theme['bg2'])
     a, b, glow = hex_rgb(theme['a']), hex_rgb(theme['b']), hex_rgb(theme['glow'])
+    if theme['id'] == 'christmas':  # deep red record, so the holly and gold star stand out
+        a, b, glow = (235, 48, 66), (120, 8, 28), (40, 150, 80)
 
     # Background: dark theme gradient with a soft glow behind the record.
     canvas = gradient(s, bg2, bg, 120).convert('RGBA')
@@ -109,12 +111,58 @@ def draw_icon(theme, full_bleed=False):
     # Sparkle: a small four-point star, top right.
     sx, sy, sr = cx + s * .2 * k, cy - s * .2 * k, s * .07 * k
     nd.polygon([(sx, sy - sr), (sx + sr * .28, sy - sr * .28), (sx + sr, sy), (sx + sr * .28, sy + sr * .28),
-                (sx, sy + sr), (sx - sr * .28, sy + sr * .28), (sx - sr, sy), (sx - sr * .28, sy - sr * .28)], fill='white')
+                (sx, sy + sr), (sx - sr * .28, sy + sr * .28), (sx - sr, sy), (sx - sr * .28, sy - sr * .28)], fill=(255, 211, 77) if theme['id'] == 'christmas' else 'white')
     note_shadow = Image.new('RGBA', (s, s), (0, 0, 0, 0))
     note_shadow.paste((0, 0, 0, 110), (0, 0), note.split()[3])
     canvas = Image.alpha_composite(canvas, ImageChops.offset(note_shadow, 0, int(s * .012)).filter(ImageFilter.GaussianBlur(s * .012)))
     canvas = Image.alpha_composite(canvas, note)
+    if theme['id'] == 'christmas':
+        canvas = add_holly(canvas, cx, cy, r, s)
     return canvas
+
+
+def add_holly(canvas, cx, cy, r, s):
+    """Christmas icon: a sprig of holly on the record's lower left, and snow."""
+    layer = Image.new('RGBA', (s, s), (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    hx, hy = cx - r * .58, cy + r * .58
+    leaf_l, leaf_w = r * .42, r * .17
+    for angle in (-35, 55):
+        leaf = Image.new('RGBA', (s, s), (0, 0, 0, 0))
+        ld = ImageDraw.Draw(leaf)
+        pts = []
+        steps = 7
+        for i in range(steps + 1):  # spiky top edge
+            x = hx + leaf_l * i / steps
+            bulge = math.sin(math.pi * i / steps) * leaf_w * (1.0 if i % 2 == 0 else .62)
+            pts.append((x, hy - bulge))
+        for i in range(steps, -1, -1):
+            x = hx + leaf_l * i / steps
+            bulge = math.sin(math.pi * i / steps) * leaf_w * (1.0 if i % 2 == 0 else .62)
+            pts.append((x, hy + bulge))
+        ld.polygon(pts, fill=(27, 140, 70, 255))
+        ld.line((hx, hy, hx + leaf_l * .92, hy), fill=(14, 80, 40, 255), width=max(2, int(s * .006)))
+        layer = Image.alpha_composite(layer, leaf.rotate(angle, center=(hx, hy)))
+    d = ImageDraw.Draw(layer)
+    br = r * .085
+    for bx, by in ((hx - br * .2, hy - br * 1.1), (hx + br * 1.3, hy - br * .2), (hx - br * .6, hy + br * 1.0)):
+        d.ellipse((bx - br * 1.18, by - br * 1.18, bx + br * 1.18, by + br * 1.18), fill=(255, 244, 230, 255))
+        d.ellipse((bx - br, by - br, bx + br, by + br), fill=(222, 28, 52, 255))
+        d.ellipse((bx - br * .45, by - br * .55, bx - br * .05, by - br * .15), fill=(255, 190, 190, 220))
+    shadow = Image.new('RGBA', (s, s), (0, 0, 0, 0))
+    shadow.paste((0, 0, 0, 120), (0, 0), layer.split()[3])
+    canvas = Image.alpha_composite(canvas, ImageChops.offset(shadow, 0, int(s * .01)).filter(ImageFilter.GaussianBlur(s * .01)))
+    canvas = Image.alpha_composite(canvas, layer)
+    snow = Image.new('RGBA', (s, s), (0, 0, 0, 0))
+    sd = ImageDraw.Draw(snow)
+    for i in range(26):
+        x = (i * 0.618 % 1) * s
+        y = ((i * 0.377 + .05) % 1) * s
+        if math.hypot(x - cx, y - cy) < r * 1.02:
+            continue
+        rr = s * (.006 + (i % 3) * .003)
+        sd.ellipse((x - rr, y - rr, x + rr, y + rr), fill=(255, 255, 255, 170))
+    return Image.alpha_composite(canvas, snow)
 
 
 def rounded(img, radius_ratio=0.225):

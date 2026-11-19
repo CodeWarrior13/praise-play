@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { artUrl, type Catalog, type Song } from '../lib/catalog'
 import { isCorrectGuess } from '../lib/daily'
 import { getPreview, type Preview } from '../lib/preview'
-import { DIFFICULTY, MIN_CLIP, WRONG_GUESS_PENALTY, formatSeconds, hintPenalty, songPoints } from '../lib/scoring'
+import { DIFFICULTY, MIN_CLIP, WRONG_GUESS_PENALTY, formatSeconds, hintPenalty, songBonus, songPoints } from '../lib/scoring'
 import { hintsFor } from '../lib/hints'
 import { HintBox } from './HintBox'
 import type { SongResult } from '../lib/storage'
@@ -34,6 +34,7 @@ export function Round({ catalog, song, nextSong, index, total, level, runScore, 
   const [unlocked, setUnlocked] = useState(MIN_CLIP)
   const [wrong, setWrong] = useState<string[]>([])
   const [hintsUsed, setHintsUsed] = useState(0)
+  const bonus = songBonus(song.popularity)
   const hints = useMemo(() => hintsFor(song, catalog), [song, catalog])
   const [result, setResult] = useState<SongResult | null>(null)
   const [preview, setPreview] = useState<Preview | null | 'loading'>('loading')
@@ -89,7 +90,8 @@ export function Round({ catalog, song, nextSong, index, total, level, runScore, 
       seconds: unlocked,
       wrongGuesses: wrong.length,
       hints: hintsUsed,
-      points: outcome === 'named' ? songPoints(unlocked, wrong.length, hintsUsed) : 0,
+      points: outcome === 'named' ? songPoints(unlocked, wrong.length, hintsUsed, bonus.bonus) : 0,
+      bonus: bonus.bonus,
       outcome,
       elapsed,
     })
@@ -134,6 +136,8 @@ export function Round({ catalog, song, nextSong, index, total, level, runScore, 
             unlocked={unlocked}
             onUnlock={setUnlocked}
             penalty={wrong.length * WRONG_GUESS_PENALTY + hintPenalty(hintsUsed)}
+            bonus={bonus.bonus}
+            bonusLabel={bonus.label}
             onFirstPlay={() => { startedAt.current ??= performance.now() }}
             onAudioError={unavailable}
             hotkeys

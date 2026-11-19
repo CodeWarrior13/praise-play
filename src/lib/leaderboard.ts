@@ -19,7 +19,7 @@ export async function submitRun(name: string, results: SongResult[]): Promise<Su
   const response = await fetch(API, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ name, results: results.map(({ outcome, seconds, wrongGuesses, hints }) => ({ outcome, seconds, wrong: wrongGuesses, hints: hints ?? 0 })) }),
+    body: JSON.stringify({ name, results: results.map(({ songId, outcome, seconds, wrongGuesses, hints }) => ({ songId, outcome, seconds, wrong: wrongGuesses, hints: hints ?? 0 })) }),
   })
   const body = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(body.error ?? 'Could not save your score')

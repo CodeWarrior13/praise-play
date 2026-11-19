@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
-import { MAX_POINTS, formatPoints, formatSeconds } from '../lib/scoring'
+import { MAX_POINTS, RUN_LENGTH, formatPoints, formatSeconds } from '../lib/scoring'
+import type { Catalog } from '../lib/catalog'
+import { ShareCard } from './ShareCard'
+import type { SoloSettings } from './SoloSetup'
 import type { RunRecord, Stats } from '../lib/storage'
 import type { Mode } from '../App'
 import { msUntilTomorrow } from '../lib/daily'
@@ -22,28 +25,17 @@ function verdict(ratio: number): string {
   return 'Tough set. Try another run!'
 }
 
-type Props = { run: RunRecord; mode: Mode; daily: number | null; stats: Stats; onAgain: () => void; onHome: () => void; onLeaderboard: () => void }
+type Props = { run: RunRecord; mode: Mode; daily: number | null; stats: Stats; setup?: SoloSettings; catalog: Catalog; christmas?: boolean; onAgain: () => void; onHome: () => void; onLeaderboard: () => void }
 
-export function Summary({ run, mode, daily, stats, onAgain, onHome, onLeaderboard }: Props) {
-  const [copied, setCopied] = useState(false)
+export function Summary({ run, mode, daily, stats, setup, catalog, christmas = false, onAgain, onHome, onLeaderboard }: Props) {
+  const [sharing, setSharing] = useState(false)
   const endless = mode === 'endless'
   const named = run.results.filter((r) => r.outcome === 'named').length
-  const max = MAX_POINTS * Math.max(1, run.results.length)
+  // Harder songs carry a bonus, so the best possible score counts it in.
+  const max = Math.max(MAX_POINTS, run.results.reduce((sum, r) => sum + MAX_POINTS * (r.bonus ?? 1), 0))
+  const leaderboardRun = mode === 'run' && run.results.length === RUN_LENGTH && (setup?.difficulty ?? 'mixed') === 'mixed' && !christmas
   const ratio = run.total / max
   const newBest = endless ? run.total > 0 && run.total >= (stats.bestEndless ?? 0) : run.total > 0 && run.total >= stats.best
-
-  async function share() {
-    const line = run.results.map((r) => `${square(r.points, r.outcome === 'skipped')} ${r.outcome === 'skipped' ? 'skip' : formatSeconds(r.seconds)}`).join('\n')
-    const head = daily ? `Praise Play · Day ${daily}` : endless ? 'Praise Play · Endless' : 'Praise Play'
-    const score = endless ? `${formatPoints(run.total)} pts · ${named} songs named` : `${formatPoints(run.total)} / ${formatPoints(max)}`
-    const text = `${head}\n${score}\n${endless ? line.split('\n').map((l) => l.split(' ')[0]).join('') : line}\n${location.origin}${location.pathname}`
-    try {
-      if (navigator.share && matchMedia('(pointer: coarse)').matches) await navigator.share({ text })
-      else { await navigator.clipboard.writeText(text); setCopied(true); window.setTimeout(() => setCopied(false), 2000) }
-    } catch {
-      // Sharing was cancelled.
-    }
-  }
 
   return (
     <section className="card summary enter">
@@ -75,13 +67,14 @@ export function Summary({ run, mode, daily, stats, onAgain, onHome, onLeaderboar
           </li>
         ))}
       </ol>
-      {mode === 'run' && <RunLeaderboard run={run} onOpen={onLeaderboard} />}
+      {leaderboardRun ? <RunLeaderboard run={run} onOpen={onLeaderboard} /> : mode === 'run' && <p className="muted small">{christmas ? 'Christmas games stay off the leaderboard.' : 'Leaderboard scores come from 5-song Mixed games.'}</p>}
       <div className="summary-actions">
-        <button className="primary shine" onClick={share}>{copied ? 'Copied!' : 'Share score'}</button>
+        <button className="primary shine" onClick={() => setSharing(true)}>Share score</button>
         <button className="ghost" onClick={onAgain}>{daily ? 'Play a free run' : endless ? 'Play endless again' : 'Play again'}</button>
       </div>
       <button className="text-button" onClick={onHome}>Change run options</button>
       {daily && <Countdown />}
+      {sharing && <ShareCard run={run} mode={mode} catalog={catalog} christmas={christmas} onClose={() => setSharing(false)} />}
     </section>
   )
 }

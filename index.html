@@ -17,7 +17,7 @@
       // Paint the saved theme's background before anything loads, so the intro never flashes white.
       try {
         var id = JSON.parse(localStorage.getItem('praise-play:v4:setting:theme') || '"sanctuary"')
-        var bg = { sanctuary: '#0b0820', aurora: '#03131a', ember: '#140505', ocean: '#040a1f', evergreen: '#03120b', gold: '#080807', dawn: '#fff6ef', royal: '#0d0617', rose: '#160a0d', galaxy: '#040212', arctic: '#eef6fb' }[id] || '#0b0820'
+        var bg = { sanctuary: '#0b0820', aurora: '#03131a', ember: '#140505', ocean: '#040a1f', evergreen: '#03120b', gold: '#080807', dawn: '#fff6ef', royal: '#0d0617', rose: '#160a0d', galaxy: '#040212', arctic: '#eef6fb', christmas: '#07160e' }[id] || '#0b0820'
         document.documentElement.style.background = bg
         document.documentElement.dataset.boot = id
       } catch (e) {}

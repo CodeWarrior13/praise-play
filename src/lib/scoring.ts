@@ -31,8 +31,25 @@ export function roundClip(seconds: number): number {
  */
 export function clipWorth(seconds: number): number {
   const x = toPosition(seconds)
-  const points = MIN_POINTS + (MAX_POINTS - MIN_POINTS) * (1 - Math.pow(x, 0.55))
+  // Gentle early on (a 1–3 second guess still pays well), steeper as the clip gets long.
+  const points = MIN_POINTS + (MAX_POINTS - MIN_POINTS) * (1 - Math.pow(x, 1.5))
   return Math.round(points / 10) * 10
+}
+
+/**
+ * Harder songs pay more. Based on how well-known the song is (popularity 1–100):
+ * the big hits pay the base amount, the deepest cuts half as much again.
+ */
+export const SONG_BONUS: { min: number; bonus: number; label: string }[] = [
+  { min: 60, bonus: 1, label: '' },
+  { min: 40, bonus: 1.1, label: 'Medium song' },
+  { min: 25, bonus: 1.2, label: 'Hard song' },
+  { min: 12, bonus: 1.35, label: 'Extreme song' },
+  { min: 0, bonus: 1.5, label: 'Deep cut' },
+]
+
+export function songBonus(popularity: number): { bonus: number; label: string } {
+  return SONG_BONUS.find((tier) => popularity >= tier.min) ?? SONG_BONUS[SONG_BONUS.length - 1]
 }
 
 /** What each hint costs, in order. Hints are optional and only shown when asked for. */
@@ -43,8 +60,10 @@ export function hintPenalty(hints: number): number {
   return HINT_COSTS.slice(0, Math.max(0, Math.min(hints, HINT_COSTS.length))).reduce((sum, cost) => sum + cost, 0)
 }
 
-export function songPoints(seconds: number, wrongGuesses: number, hints = 0): number {
-  return Math.max(0, clipWorth(seconds) - wrongGuesses * WRONG_GUESS_PENALTY - hintPenalty(hints))
+/** Points for naming a song: the clip's worth × the song's difficulty bonus, minus wrong guesses and hints. */
+export function songPoints(seconds: number, wrongGuesses: number, hints = 0, bonus = 1): number {
+  const earned = clipWorth(seconds) * bonus - wrongGuesses * WRONG_GUESS_PENALTY - hintPenalty(hints)
+  return Math.max(0, Math.round(earned / 10) * 10)
 }
 
 export function formatSeconds(seconds: number): string {

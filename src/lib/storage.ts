@@ -14,6 +14,8 @@ export type SongResult = {
   elapsed?: number
   /** How many optional hints were taken. */
   hints?: number
+  /** Difficulty bonus the song carried (1 = none). */
+  bonus?: number
 }
 
 export type RunRecord = { total: number; results: SongResult[] }

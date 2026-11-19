@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { themes } from '../lib/theme'
+import { christmasAvailable } from '../lib/seasonal'
 
 export function ThemePicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
   const [open, setOpen] = useState(false)
@@ -22,7 +23,7 @@ export function ThemePicker({ value, onChange }: { value: string; onChange: (id:
       {open && (
         <div className="theme-menu" role="menu">
           <p>Theme</p>
-          {themes.map((theme) => (
+          {themes.filter((theme) => !theme.seasonal || christmasAvailable()).map((theme) => (
             <button key={theme.id} role="menuitemradio" aria-checked={theme.id === value} className={theme.id === value ? 'active' : ''} onClick={() => { onChange(theme.id); setOpen(false) }}>
               <span className="swatch" style={{ background: `linear-gradient(135deg, ${theme.swatch[1]}, ${theme.swatch[2]})`, boxShadow: `0 0 0 3px ${theme.swatch[0]}` }} />
               {theme.name}

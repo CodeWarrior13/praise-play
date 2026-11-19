@@ -9,11 +9,11 @@
  * formula as the game, so a hand-edited total is ignored.
  */
 import { getStore } from '@netlify/blobs'
-import { RUN_LENGTH, songPoints } from '../../src/lib/scoring'
+import { RUN_LENGTH, songBonus, songPoints } from '../../src/lib/scoring'
 
 type Entry = { id: string; name: string; score: number; named: number; at: string }
 type Board = { entries: Entry[] }
-type SongIn = { outcome?: string; seconds?: number; wrong?: number; hints?: number }
+type SongIn = { songId?: string | number; outcome?: string; seconds?: number; wrong?: number; hints?: number }
 
 const KEEP = 100
 const SHOW = 50
@@ -33,7 +33,17 @@ function cleanName(raw: unknown): string | null {
   return name
 }
 
-function scoreRun(results: unknown): { score: number; named: number } | null {
+/** Song popularity by track ID, read once from the site's own catalog, for the difficulty bonus. */
+let popularity: Promise<Map<string, number>> | null = null
+function loadPopularity(origin: string): Promise<Map<string, number>> {
+  popularity ??= fetch(`${origin}/catalog.json`)
+    .then((r) => r.json())
+    .then((catalog: { songs: [number, string, number, number, number][] }) => new Map(catalog.songs.map((s) => [String(s[0]), s[4]])))
+    .catch(() => { popularity = null; return new Map() })
+  return popularity
+}
+
+function scoreRun(results: unknown, pop: Map<string, number>): { score: number; named: number } | null {
   if (!Array.isArray(results) || results.length !== RUN_LENGTH) return null
   let score = 0
   let named = 0
@@ -43,7 +53,9 @@ function scoreRun(results: unknown): { score: number; named: number } | null {
     const wrong = Number(song.wrong ?? 0)
     const hints = Number(song.hints ?? 0)
     if (!(seconds >= 0.1 && seconds <= 30) || !(wrong >= 0 && wrong < 100) || !(hints >= 0 && hints <= 3)) return null
-    score += songPoints(seconds, Math.floor(wrong), Math.floor(hints))
+    // The bonus comes from our own catalog, never from the client.
+    const bonus = songBonus(pop.get(String(song.songId)) ?? 100).bonus
+    score += songPoints(seconds, Math.floor(wrong), Math.floor(hints), bonus)
     named += 1
   }
   return { score, named }
@@ -94,7 +106,7 @@ export default async (request: Request) => {
     const body = (await request.json().catch(() => null)) as { name?: unknown; results?: unknown } | null
     const name = cleanName(body?.name)
     if (!name) return json({ error: 'Pick a name between 2 and 16 characters.' }, 400)
-    const run = scoreRun(body?.results)
+    const run = scoreRun(body?.results, await loadPopularity(new URL(request.url).origin))
     if (!run) return json({ error: 'That run could not be checked.' }, 400)
     if (run.score <= 0) return json({ error: 'Name at least one song to get on the board.' }, 400)
 

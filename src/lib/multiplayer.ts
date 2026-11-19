@@ -11,7 +11,9 @@ import type { DataConnection, Peer as PeerType, PeerOptions } from 'peerjs'
 import type { Song } from './catalog'
 import { getPreview, prefetchPreviews } from './preview'
 import { buildRun, endlessSong } from './run'
-import { songPoints } from './scoring'
+import { poolForDifficulty, type Difficulty } from './difficulty'
+import { recentSongs } from './recent'
+import { songBonus, songPoints } from './scoring'
 
 export const MAX_PLAYERS = 30
 /** Time-per-song choices for the host, in seconds. 0 = unlimited. */
@@ -30,28 +32,12 @@ export type PlayerView = { id: string; name: string; score: number; host: boolea
 export type RoundResult = { id: string; name: string; outcome: Outcome; points: number; seconds: number; wrong: number; elapsed: number; hints?: number; lostLife?: boolean; out?: boolean; spectating?: boolean }
 
 export type GameMode = 'set' | 'endless'
-export type Difficulty = 'mixed' | 'easy' | 'hard' | 'extreme' | 'impossible'
+export type { Difficulty } from './difficulty'
+export { DIFFICULTIES, poolForDifficulty } from './difficulty'
 /** Which part of the catalog the room plays: everything, Popular Picks, or the Assorted Playlist. */
 export type RoomLibrary = 'all' | 'mine' | 'playlist'
 /** roundSeconds: time to answer each song; 0 = no limit. */
 export type Settings = { rounds: number; mode: GameMode; difficulty: Difficulty; library: RoomLibrary; roundSeconds: number }
-
-/** Which slice of the pool (ranked best-known first) each difficulty draws from. */
-export const DIFFICULTIES: { id: Difficulty; label: string; hint: string; range: [number, number] }[] = [
-  { id: 'mixed', label: 'Mixed', hint: 'Starts with hits, ends with deep cuts', range: [0, 1] },
-  { id: 'easy', label: 'Easy', hint: 'The biggest hits only', range: [0, 0.08] },
-  { id: 'hard', label: 'Hard', hint: 'Well-known, but not the top hits', range: [0.08, 0.3] },
-  { id: 'extreme', label: 'Extreme', hint: 'Album tracks and B-sides', range: [0.3, 0.65] },
-  { id: 'impossible', label: 'Impossible', hint: 'The deepest cuts in the catalog', range: [0.65, 1] },
-]
-
-export function poolForDifficulty(pool: Song[], difficulty: Difficulty): Song[] {
-  const [from, to] = DIFFICULTIES.find((d) => d.id === difficulty)?.range ?? [0, 1]
-  if (from === 0 && to === 1) return pool
-  const ranked = [...pool].sort((a, b) => b.popularity - a.popularity || a.trackId - b.trackId)
-  const slice = ranked.slice(Math.floor(from * ranked.length), Math.ceil(to * ranked.length))
-  return slice.length >= 5 ? slice : ranked
-}
 
 /** Everything the host tells players. The host's own screen renders the same messages. */
 export type ServerMessage =
@@ -264,7 +250,7 @@ export class HostRoom {
       await this.nextRound()
       return
     }
-    let songs = buildRun(pool, Math.random, this.settings.rounds)
+    let songs = buildRun(pool, Math.random, this.settings.rounds, recentSongs())
     prefetchPreviews(songs)
     const previews = await Promise.all(songs.map((song) => getPreview(song)))
     const used = new Set(songs.map((s) => s.id))
@@ -309,7 +295,7 @@ export class HostRoom {
     const seconds = Math.min(30, Math.max(0.1, Number(answer.seconds) || 30))
     const wrong = Math.max(0, Math.floor(Number(answer.wrong) || 0))
     const hints = Math.min(3, Math.max(0, Math.floor(Number(answer.hints) || 0)))
-    const points = answer.outcome === 'named' ? songPoints(seconds, wrong, hints) : 0
+    const points = answer.outcome === 'named' ? songPoints(seconds, wrong, hints, songBonus(this.songs[this.index]?.popularity ?? 100).bonus) : 0
     this.answers.set(id, { outcome: answer.outcome, seconds, wrong, hints, elapsed: Math.max(0, Number(answer.elapsed) || 0), points })
     this.broadcast({ t: 'status', answered: [...this.answers.keys()] })
     this.checkRoundDone()

@@ -18,6 +18,9 @@ type Props = {
   onUnlock?: (seconds: number) => void
   /** Penalty already taken off this song, shown in the worth readout. */
   penalty?: number
+  /** Difficulty bonus for this song (1 = none); shown next to the worth. */
+  bonus?: number
+  bonusLabel?: string
   /** Start playing as soon as the audio is ready (the answer screen). */
   autoPlay?: boolean
   /** Called the first time the clip is played, to start the guess timer. */
@@ -31,7 +34,7 @@ type Props = {
 const typingInField = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
 
 /** Plays the start of the preview, with a logarithmic scrubber for unlocking more. */
-export function ClipPlayer({ preview, startSeconds, unlocked, onUnlock, penalty = 0, autoPlay = false, onFirstPlay, hotkeys = false, onAudioError }: Props) {
+export function ClipPlayer({ preview, startSeconds, unlocked, onUnlock, penalty = 0, bonus = 1, bonusLabel = '', autoPlay = false, onFirstPlay, hotkeys = false, onAudioError }: Props) {
   const audioRef = useRef<HTMLAudioElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
   const frame = useRef(0)
@@ -169,7 +172,7 @@ export function ClipPlayer({ preview, startSeconds, unlocked, onUnlock, penalty 
   }
 
   const scale = reveal ? (p: number) => p / MAX_CLIP : toPosition
-  const worth = Math.max(0, clipWorth(shown) - penalty)
+  const worth = Math.max(0, Math.round((clipWorth(shown) * bonus - penalty) / 10) * 10)
 
   return (
     <div className={`player${reveal ? ' player-reveal' : ''}${playing ? ' is-playing' : ''}`}>
@@ -178,6 +181,7 @@ export function ClipPlayer({ preview, startSeconds, unlocked, onUnlock, penalty 
           <span>Worth</span>
           <strong><CountUp value={worth} duration={350} format={formatPoints} /></strong>
           <span>at {formatSeconds(shown)}</span>
+          {bonus > 1 && <span className="bonus-tag" title={`${bonusLabel}: points × ${bonus}`}>×{bonus} {bonusLabel}</span>}
         </div>
       )}
 

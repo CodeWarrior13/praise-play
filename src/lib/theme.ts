@@ -7,6 +7,8 @@ export type Theme = {
   swatch: [string, string, string]
   vars: Record<string, string>
   light?: boolean
+  /** Only offered while Christmas mode is available. */
+  seasonal?: boolean
 }
 
 /**
@@ -157,6 +159,20 @@ export const themes: Theme[] = [
       '--accent-a': '#ff9a5a', '--accent-b': '#d14bff', '--accent': '#ff6a4a', '--on-accent': '#ffffff',
       '--glow-1': '#ffb199', '--glow-2': '#e2b6ff', '--glow-3': '#ffd59a',
       '--good': '#14a35c', '--bad': '#e0364f',
+    },
+  },
+  {
+    id: 'christmas',
+    name: 'Christmas',
+    swatch: ['#0a1f14', '#e8283c', '#f6c453'],
+    seasonal: true,
+    vars: {
+      '--bg': '#07160e', '--bg-2': '#0f2a1a', '--surface': 'rgba(255,255,255,.055)', '--surface-2': 'rgba(255,255,255,.09)',
+      '--line': 'rgba(255,230,200,.13)', '--line-strong': 'rgba(255,230,200,.26)',
+      '--text': '#fff8f0', '--muted': '#d2c3b0', '--faint': '#97897a',
+      '--accent-a': '#f6c453', '--accent-b': '#e8283c', '--accent': '#ff4d5e', '--on-accent': '#fff',
+      '--glow-1': '#c8102e', '--glow-2': '#1b7a3e', '--glow-3': '#f6c453',
+      '--good': '#7ee39b', '--bad': '#ff8080',
     },
   },
 ]

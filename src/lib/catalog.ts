@@ -38,21 +38,29 @@ type RawCatalog = {
   songs: [number, string, number, number, number, 0 | string[], number?, number?][]
 }
 
-let pending: Promise<Catalog> | null = null
+const pending = new Map<string, Promise<Catalog>>()
 
-export function loadCatalog(): Promise<Catalog> {
-  pending ??= fetch(`${import.meta.env.BASE_URL}catalog.json`)
-    .then((response) => {
-      if (!response.ok) throw new Error(`Catalog failed to load (${response.status})`)
-      return response.json() as Promise<RawCatalog>
-    })
-    .then(parse)
-    .catch((error) => {
-      pending = null
-      throw error
-    })
-  return pending
+function load(file: string): Promise<Catalog> {
+  let found = pending.get(file)
+  if (!found) {
+    found = fetch(`${import.meta.env.BASE_URL}${file}`)
+      .then((response) => {
+        if (!response.ok) throw new Error(`Catalog failed to load (${response.status})`)
+        return response.json() as Promise<RawCatalog>
+      })
+      .then(parse)
+      .catch((error) => {
+        pending.delete(file)
+        throw error
+      })
+    pending.set(file, found)
+  }
+  return found
 }
+
+export const loadCatalog = () => load('catalog.json')
+/** The parked Christmas songs (seasonal/christmas.json), only fetched when Christmas mode is on. */
+export const loadChristmasCatalog = () => load('christmas.json')
 
 function parse(raw: RawCatalog): Catalog {
   const counts = new Array(raw.artists.length).fill(0)

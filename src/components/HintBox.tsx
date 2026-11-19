@@ -1,6 +1,7 @@
 import { HINT_COSTS, formatPoints } from '../lib/scoring'
+import type { Hint } from '../lib/hints'
 
-type Props = { hints: string[]; used: number; onTake: () => void; disabled?: boolean }
+type Props = { hints: Hint[]; used: number; onTake: () => void; disabled?: boolean }
 
 /** Optional clues. Nothing shows until the player asks, and each one costs more. */
 export function HintBox({ hints, used, onTake, disabled = false }: Props) {
@@ -10,7 +11,13 @@ export function HintBox({ hints, used, onTake, disabled = false }: Props) {
       {used > 0 && (
         <ol className="hint-list">
           {hints.slice(0, used).map((hint, i) => (
-            <li key={i}><span className="hint-bulb" aria-hidden="true">💡</span>{hint}<span className="hint-cost">−{formatPoints(HINT_COSTS[i])}</span></li>
+            <li key={i} className={hint.kind === 'cover' ? 'cover-hint' : undefined}>
+              {hint.kind === 'cover'
+                ? <img src={hint.cover} alt="Album cover hint" width={72} height={72} />
+                : <span className="hint-bulb" aria-hidden="true">💡</span>}
+              {hint.text}
+              <span className="hint-cost">−{formatPoints(HINT_COSTS[i])}</span>
+            </li>
           ))}
         </ol>
       )}

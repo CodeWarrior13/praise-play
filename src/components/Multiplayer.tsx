@@ -3,7 +3,7 @@ import { artUrl, type Catalog, type Song } from '../lib/catalog'
 import { isCorrectGuess } from '../lib/daily'
 import { getPreview, prefetchPreviews, type Preview } from '../lib/preview'
 import { defaultOptions, filterSongs, type RunOptions } from '../lib/run'
-import { MIN_CLIP, WRONG_GUESS_PENALTY, formatPoints, formatSeconds, hintPenalty, songPoints } from '../lib/scoring'
+import { MIN_CLIP, WRONG_GUESS_PENALTY, formatPoints, formatSeconds, hintPenalty, songBonus, songPoints } from '../lib/scoring'
 import { hintsFor } from '../lib/hints'
 import { HintBox } from './HintBox'
 import { loadSetting, saveSetting } from '../lib/storage'
@@ -213,7 +213,7 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
               ))}
             </div>
             <div className="option-label"><span>Difficulty</span><span className="diff-hint">{DIFFICULTIES.find((d) => d.id === difficulty)?.hint}</span></div>
-            <div className="segmented five difficulty">
+            <div className="segmented six difficulty">
               {DIFFICULTIES.map((d) => (
                 <button key={d.id} className={`${difficulty === d.id ? 'active' : ''} diff-${d.id}`} onClick={() => host.current?.setSettings({ difficulty: d.id })}>{d.label}</button>
               ))}
@@ -353,7 +353,7 @@ function MultiRound({ catalog, song, nextSong, index, total, endsAt, players, an
   const finish = useCallback((outcome: Outcome, seconds = unlocked, wrongCount = wrong.length) => {
     if (done) return
     const elapsed = Math.round((performance.now() - startedAt.current) / 100) / 10
-    const points = outcome === 'named' ? songPoints(seconds, wrongCount, hintsUsed) : 0
+    const points = outcome === 'named' ? songPoints(seconds, wrongCount, hintsUsed, songBonus(song.popularity).bonus) : 0
     setDone({ outcome, points })
     onAnswer(outcome, seconds, wrongCount, elapsed, hintsUsed)
   }, [done, unlocked, wrong.length, hintsUsed, onAnswer])
@@ -404,7 +404,7 @@ function MultiRound({ catalog, song, nextSong, index, total, endsAt, players, an
         </div>
       ) : !done ? (
         <div className="round-body">
-          <ClipPlayer key={song.id} preview={preview} startSeconds={preview && preview !== 'loading' ? preview.startSeconds ?? 0 : 0} unlocked={unlocked} onUnlock={setUnlocked} penalty={wrong.length * WRONG_GUESS_PENALTY + hintPenalty(hintsUsed)} hotkeys onAudioError={() => setPreview(null)} />
+          <ClipPlayer key={song.id} preview={preview} startSeconds={preview && preview !== 'loading' ? preview.startSeconds ?? 0 : 0} unlocked={unlocked} onUnlock={setUnlocked} penalty={wrong.length * WRONG_GUESS_PENALTY + hintPenalty(hintsUsed)} bonus={songBonus(song.popularity).bonus} bonusLabel={songBonus(song.popularity).label} hotkeys onAudioError={() => setPreview(null)} />
           {preview === null && <p className="notice">This song’s audio didn’t load for you. Skip it; you won’t be the only one.</p>}
           <HintBox hints={hints} used={hintsUsed} onTake={() => setHintsUsed((n) => n + 1)} />
           <GuessBox catalog={catalog} excluded={excluded} onGuess={guess} onSkip={() => finish('skipped')} skipLabel={endless ? 'Skip −♥' : 'Skip'} shake={wrong.length} />

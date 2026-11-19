@@ -55,6 +55,6 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url)
   if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return
   if (request.mode === 'navigate') event.respondWith(networkFirst(request))
-  else if (url.pathname.endsWith('/catalog.json')) event.respondWith(staleWhileRevalidate(request))
+  else if (url.pathname.endsWith('/catalog.json') || url.pathname.endsWith('/christmas.json')) event.respondWith(staleWhileRevalidate(request))
   else if (url.pathname.includes('/assets/') || url.pathname.includes('/icons/') || url.pathname.endsWith('.webmanifest')) event.respondWith(cacheFirst(request))
 })

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { installMode, onInstallChange } from '../lib/install'
 import { artUrl, type Catalog, type Song } from '../lib/catalog'
 import { normalize } from '../lib/daily'
-import { MAX_ARTISTS, defaultOptions, filterSongs, type Library, type Popularity, type RunOptions } from '../lib/run'
+import { MAX_ARTISTS, defaultOptions, filterSongs, type Library, type RunOptions } from '../lib/run'
 import { MAX_POINTS, RUN_LENGTH, WRONG_GUESS_PENALTY, clipWorth, formatPoints } from '../lib/scoring'
 import { loadSetting, saveSetting, type RunRecord, type Stats } from '../lib/storage'
 import { CountUp } from './Fx'
@@ -21,15 +21,12 @@ type Props = {
   daily: RunRecord | null
   dayNumber: number
   stats: Stats
+  /** Christmas mode switch; left out until Christmas has dropped. */
+  christmas?: { on: boolean; loading: boolean; count: number; onToggle: () => void }
 }
 
-const POPULARITY: { id: Popularity; label: string; hint: string }[] = [
-  { id: 'hits', label: 'Hits', hint: 'Songs almost everyone knows' },
-  { id: 'all', label: 'Everything', hint: 'Hits and deeper cuts' },
-  { id: 'deep', label: 'Deep cuts', hint: 'Album tracks for true fans' },
-]
 
-export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless, onMultiplayer, onLeaderboard, onInstall, onHelp, daily, dayNumber, stats }: Props) {
+export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless, onMultiplayer, onLeaderboard, onInstall, onHelp, daily, dayNumber, stats, christmas }: Props) {
   // Returning players don't need the rules spelled out every time.
   const [showHelp] = useState(() => !loadSetting('seenHelp', false) && stats.runs === 0)
   const start = (fn: () => void) => () => { saveSetting('seenHelp', true); fn() }
@@ -74,7 +71,6 @@ export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless,
     options.library === 'playlist' ? 'Assorted Playlist' : options.library === 'mine' ? 'Popular Picks' : null,
     options.artists.length ? `${options.artists.length} artist${options.artists.length > 1 ? 's' : ''}` : `${catalog.artists.length} artists`,
     options.yearFrom !== null || options.yearTo !== null ? `${yearFrom}–${yearTo}` : null,
-    options.popularity !== 'all' ? POPULARITY.find((p) => p.id === options.popularity)!.label.toLowerCase() : null,
   ].filter(Boolean).join(' · ')
 
   return (
@@ -84,12 +80,22 @@ export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless,
         <p className="eyebrow"><span className="live-dot" /> name the song from 0.1 seconds</p>
         <h1>How little do you <span className="gradient-text">need to hear?</span></h1>
         <p className="lede">A split second of Christian music. Unlock more only if you must. {RUN_LENGTH} songs a run, easy to legendary.</p>
-        <div className="cta">
-          <button className="primary big shine play-main" onClick={start(onStart)} disabled={pool.length === 0}>
-            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5L8 5.5Z" fill="currentColor" /></svg>
-            Play <small>5 songs</small>
+        {christmas && (
+          <button className={`xmas-toggle${christmas.on ? ' on' : ''}`} onClick={christmas.onToggle} aria-pressed={christmas.on}>
+            <span className="xmas-bulbs" aria-hidden="true"><i /><i /><i /><i /><i /></span>
+            <span className="xmas-copy">
+              <strong>🎄 Christmas mode {christmas.on ? 'is on' : ''}</strong>
+              <span>{christmas.on ? `${christmas.count || 'Loading'} Christmas songs · tap to switch back` : 'New! Only the famous Christmas songs'}</span>
+            </span>
+            <span className="xmas-switch" aria-hidden="true"><span /></span>
           </button>
-          <button className="ghost big" onClick={start(onEndless)} disabled={pool.length === 0}>
+        )}
+        <div className="cta">
+          <button className="primary big shine play-main" onClick={start(onStart)} disabled={pool.length === 0 && !christmas?.on}>
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5L8 5.5Z" fill="currentColor" /></svg>
+            Play <small>solo</small>
+          </button>
+          <button className="ghost big" onClick={start(onEndless)} disabled={pool.length === 0 && !christmas?.on}>
             <span aria-hidden="true">∞</span> Endless
           </button>
           <button className="ghost big" onClick={start(onDaily)}>
@@ -104,14 +110,14 @@ export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless,
           <button className="lb-link" onClick={onLeaderboard}>🏆 Global leaderboard</button>
           {canInstall && <button className="lb-link" onClick={onInstall}>📲 Get the app</button>}
         </div>
-        {pool.length === 0 && (
+        {pool.length === 0 && !christmas?.on && (
           <div className="empty-pool" role="alert">
             <strong>No songs match your Run options.</strong>
             <span>Try fewer filters, or start fresh.</span>
             <button className="primary" onClick={() => onOptions(defaultOptions)}>Reset options</button>
           </div>
         )}
-        <p className="pool-count"><strong><CountUp value={pool.length} duration={500} /></strong> songs in the pool</p>
+        <p className="pool-count"><strong><CountUp value={christmas?.on ? christmas.count : pool.length} duration={500} /></strong> {christmas?.on ? 'Christmas songs' : 'songs'} in the pool</p>
       </section>
 
       <section className={`card options enter${showOptions ? ' open' : ''}`} style={{ animationDelay: '80ms' }}>
@@ -131,18 +137,6 @@ export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless,
         <div className="collapse">
           <div className="collapse-inner">
             <div className="options-body">
-              <div className="option-group">
-                <div className="option-label"><span>Popularity</span></div>
-                <div className="segmented three">
-                  {POPULARITY.map((p) => (
-                    <button key={p.id} className={options.popularity === p.id ? 'active' : ''} onClick={() => set({ popularity: p.id })} title={p.hint}>
-                      {p.label}
-                      <small>{filterSongs(catalog, { ...options, popularity: p.id }).length.toLocaleString()}</small>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               <div className="option-group">
                 <div className="option-label"><span>Song library</span></div>
                 <div className="segmented three library">
