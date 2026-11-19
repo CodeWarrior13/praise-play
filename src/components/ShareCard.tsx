@@ -51,7 +51,7 @@ export function ShareCard({ run, mode, catalog, christmas = false, onClose }: Pr
     try {
       const response = await fetch(cardImageUrl(url, 'story'))
       if (!response.ok) throw new Error(String(response.status))
-      const file = new File([await response.blob()], 'praise-play-score.png', { type: 'image/png' })
+      const file = new File([await response.blob()], 'praise-play-score.jpg', { type: 'image/jpeg' })
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], text: `${shareMessage(run.total, name)} ${url}` })
       } else {

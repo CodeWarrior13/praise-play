@@ -1,5 +1,5 @@
 /**
- * GET /api/card?r=<shared run>&size=link|story → the results card as a PNG.
+ * GET /api/card?r=<shared run>&size=link|story → the results card as a JPEG.
  * `link` (1200×630) is what iMessage, WhatsApp, email, Facebook, X… show under a
  * shared link; `story` (1080×1920) is for Instagram/TikTok/Facebook stories.
  */
@@ -15,7 +15,7 @@ export default async (request: Request) => {
     const png = await renderCard(url.origin, shared, size)
     return new Response(png, {
       headers: {
-        'content-type': 'image/png',
+        'content-type': 'image/jpeg',
         // The image only depends on the URL, so it can be cached for good.
         'cache-control': 'public, max-age=31536000, immutable',
         'netlify-cdn-cache-control': 'public, max-age=31536000, immutable',

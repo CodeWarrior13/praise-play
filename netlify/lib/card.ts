@@ -8,6 +8,7 @@
  */
 import satori from 'satori'
 import { Resvg, initWasm } from '@resvg/resvg-wasm'
+import jpeg from 'jpeg-js'
 import { CARD_STYLES, type SharedRun } from '../../src/lib/shareRun'
 
 export type CardSize = 'link' | 'story'
@@ -102,6 +103,7 @@ function note(size: number, color: string): Node {
   }
 }
 
+/** The card as a JPEG. */
 export async function renderCard(origin: string, shared: SharedRun, size: CardSize): Promise<Uint8Array> {
   const [{ fonts }, songs, xmasSongs] = await Promise.all([
     loadAssets(origin),
@@ -174,5 +176,7 @@ export async function renderCard(origin: string, shared: SharedRun, size: CardSi
     )
 
   const svg = await satori(layout as never, { width, height, fonts })
-  return new Resvg(svg, { fitTo: { mode: 'width', value: width } }).render().asPng()
+  // JPEG keeps it small: WhatsApp and others skip preview images that are too big.
+  const image = new Resvg(svg, { fitTo: { mode: 'width', value: width } }).render()
+  return jpeg.encode({ data: Buffer.from(image.pixels), width: image.width, height: image.height }, 86).data
 }
