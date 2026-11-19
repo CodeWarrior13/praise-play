@@ -22,3 +22,9 @@
   for = "/*.webmanifest"
   [headers.values]
     Content-Type = "application/manifest+json"
+
+# The owner's stats page is part of the app.
+[[redirects]]
+  from = "/stats"
+  to = "/index.html"
+  status = 200

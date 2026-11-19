@@ -59,7 +59,7 @@ def draw_icon(theme, full_bleed=False):
     s = SIZE
     bg, bg2 = hex_rgb(theme['bg']), hex_rgb(theme['bg2'])
     a, b, glow = hex_rgb(theme['a']), hex_rgb(theme['b']), hex_rgb(theme['glow'])
-    if theme['id'] == 'christmas':  # deep red record, so the holly and gold star stand out
+    if theme['id'].startswith('christmas'):  # deep red record, so the holly and gold star stand out
         a, b, glow = (235, 48, 66), (120, 8, 28), (40, 150, 80)
 
     # Background: dark theme gradient with a soft glow behind the record.
@@ -111,17 +111,85 @@ def draw_icon(theme, full_bleed=False):
     # Sparkle: a small four-point star, top right.
     sx, sy, sr = cx + s * .2 * k, cy - s * .2 * k, s * .07 * k
     nd.polygon([(sx, sy - sr), (sx + sr * .28, sy - sr * .28), (sx + sr, sy), (sx + sr * .28, sy + sr * .28),
-                (sx, sy + sr), (sx - sr * .28, sy + sr * .28), (sx - sr, sy), (sx - sr * .28, sy - sr * .28)], fill=(255, 211, 77) if theme['id'] == 'christmas' else 'white')
+                (sx, sy + sr), (sx - sr * .28, sy + sr * .28), (sx - sr, sy), (sx - sr * .28, sy - sr * .28)], fill=(255, 211, 77) if theme['id'].startswith('christmas') else 'white')
     note_shadow = Image.new('RGBA', (s, s), (0, 0, 0, 0))
     note_shadow.paste((0, 0, 0, 110), (0, 0), note.split()[3])
     canvas = Image.alpha_composite(canvas, ImageChops.offset(note_shadow, 0, int(s * .012)).filter(ImageFilter.GaussianBlur(s * .012)))
     canvas = Image.alpha_composite(canvas, note)
     if theme['id'] == 'christmas':
         canvas = add_holly(canvas, cx, cy, r, s)
+    elif theme['id'] == 'christmas-lights':
+        canvas = add_ring_lights(canvas, cx, cy, r, s)
+    elif theme['id'] == 'christmas-strand':
+        canvas = add_note_lights(canvas, cx, cy, r, s, k)
     return canvas
 
 
-def add_holly(canvas, cx, cy, r, s):
+BULBS = [(255, 59, 78), (255, 211, 77), (61, 220, 132), (77, 184, 255), (255, 138, 216)]
+
+
+def bulb_layer(s, bulbs, wire_points):
+    """Wire through wire_points, then glowing bulbs at (x, y, angle, colour)."""
+    glow = Image.new('RGBA', (s, s), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    for x, y, _, colour in bulbs:
+        gr = s * .045
+        gd.ellipse((x - gr, y - gr, x + gr, y + gr), fill=colour + (150,))
+    glow = glow.filter(ImageFilter.GaussianBlur(s * .022))
+    layer = Image.new('RGBA', (s, s), (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    d.line(wire_points, fill=(20, 45, 30, 255), width=max(3, int(s * .008)), joint='curve')
+    for x, y, angle, colour in bulbs:
+        bw, bh = s * .022, s * .034
+        bulb = Image.new('RGBA', (s, s), (0, 0, 0, 0))
+        bd = ImageDraw.Draw(bulb)
+        bd.rectangle((x - bw * .45, y - bh * .25, x + bw * .45, y + bh * .2), fill=(60, 75, 64, 255))
+        bd.ellipse((x - bw, y, x + bw, y + bh * 2), fill=colour + (255,))
+        bd.ellipse((x - bw * .45, y + bh * .35, x - bw * .05, y + bh * .9), fill=(255, 255, 255, 170))
+        layer = Image.alpha_composite(layer, bulb.rotate(angle, center=(x, y)))
+    return glow, layer
+
+
+def add_ring_lights(canvas, cx, cy, r, s):
+    """Christmas icon: a string of lights wrapped around the record."""
+    rr = r * .96
+    n = 14
+    wire = []
+    for i in range(n * 8 + 1):
+        a = 2 * math.pi * i / (n * 8)
+        sag = 1 + .035 * abs(math.sin(a * n / 2))
+        wire.append((cx + math.cos(a) * rr * sag, cy + math.sin(a) * rr * sag))
+    bulbs = []
+    for i in range(n):
+        a = 2 * math.pi * (i + .5) / n
+        x, y = cx + math.cos(a) * rr * 1.035, cy + math.sin(a) * rr * 1.035
+        bulbs.append((x, y, -math.degrees(a) + 90, BULBS[i % len(BULBS)]))
+    glow, layer = bulb_layer(s, bulbs, wire)
+    return Image.alpha_composite(Image.alpha_composite(canvas, glow), layer)
+
+
+def add_note_lights(canvas, cx, cy, r, s, k):
+    """Christmas icon: lights hanging off the music note's flag and draping down."""
+    # Start at the tip of the note's flag and swoop down across the record.
+    tip = (cx - s * .07 * k + s * .19 * k / 2 + s * .13 * k, cy - s * .26 * k + s * .105 * k)
+    anchors = [(cx - r * .86, cy - r * .22), tip, (cx + r * .92, cy + r * .02)]
+    points, bulbs = [], []
+    for seg in range(2):
+        (x0, y0), (x1, y1) = anchors[seg], anchors[seg + 1]
+        sag = r * (.34 if seg == 0 else .26)
+        for i in range(41):
+            t = i / 40
+            points.append((x0 + (x1 - x0) * t, y0 + (y1 - y0) * t + math.sin(math.pi * t) * sag))
+        for i in range(1, 5):
+            t = i / 5
+            x, y = x0 + (x1 - x0) * t, y0 + (y1 - y0) * t + math.sin(math.pi * t) * sag
+            bulbs.append((x, y, 0, BULBS[(seg * 4 + i) % len(BULBS)]))
+    glow, layer = bulb_layer(s, bulbs, points)
+    canvas = Image.alpha_composite(Image.alpha_composite(canvas, glow), layer)
+    return add_holly(canvas, cx, cy, r, s, sprig_only=True)
+
+
+def add_holly(canvas, cx, cy, r, s, sprig_only=False):
     """Christmas icon: a sprig of holly on the record's lower left, and snow."""
     layer = Image.new('RGBA', (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
@@ -153,6 +221,8 @@ def add_holly(canvas, cx, cy, r, s):
     shadow.paste((0, 0, 0, 120), (0, 0), layer.split()[3])
     canvas = Image.alpha_composite(canvas, ImageChops.offset(shadow, 0, int(s * .01)).filter(ImageFilter.GaussianBlur(s * .01)))
     canvas = Image.alpha_composite(canvas, layer)
+    if sprig_only:
+        return canvas
     snow = Image.new('RGBA', (s, s), (0, 0, 0, 0))
     sd = ImageDraw.Draw(snow)
     for i in range(26):
@@ -176,6 +246,9 @@ def rounded(img, radius_ratio=0.225):
 def main():
     ICONS.mkdir(parents=True, exist_ok=True)
     themes = read_themes()
+    # Christmas has three icon designs; the game picks one at random (src/lib/theme.ts).
+    for base in [t for t in themes if t['id'] == 'christmas']:
+        themes += [dict(base, id='christmas-lights'), dict(base, id='christmas-strand')]
     for theme in themes:
         icon = draw_icon(theme)
         maskable = draw_icon(theme, full_bleed=True)

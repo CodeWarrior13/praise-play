@@ -12,11 +12,13 @@
   },
   "dependencies": {
     "@netlify/blobs": "^10.7.12",
+    "@resvg/resvg-wasm": "^2.6.2",
     "@vitejs/plugin-react": "^6.3.0",
     "peerjs": "^1.5.5",
     "qrcode-generator": "^1.4.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "satori": "^0.18.4",
     "vite": "^8.3.8"
   },
   "devDependencies": {

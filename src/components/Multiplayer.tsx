@@ -5,6 +5,7 @@ import { getPreview, prefetchPreviews, type Preview } from '../lib/preview'
 import { defaultOptions, filterSongs, type RunOptions } from '../lib/run'
 import { MIN_CLIP, WRONG_GUESS_PENALTY, formatPoints, formatSeconds, hintPenalty, songBonus, songPoints } from '../lib/scoring'
 import { hintsFor } from '../lib/hints'
+import { trackGame } from '../lib/analytics'
 import { HintBox } from './HintBox'
 import { loadSetting, saveSetting } from '../lib/storage'
 import { ClientRoom, DIFFICULTIES, ENDLESS_LIVES, HostRoom, MAX_PLAYERS, cleanCode, cleanName, type Difficulty, type GameMode, type RoomLibrary, ROUND_TIME_CHOICES, DEFAULT_ROUND_SECONDS, type Outcome, type PlayerView, type RoundResult, type ServerMessage } from '../lib/multiplayer'
@@ -77,7 +78,7 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
         setPlayers(message.standings)
         setView({ phase: 'reveal', index: message.index, total: message.total, songId: message.songId, results: message.results, last: message.last })
         break
-      case 'end': setPlayers(message.standings); setView({ phase: 'end' }); break
+      case 'end': setPlayers(message.standings); setView({ phase: 'end' }); trackGame('multi'); break
       case 'error': setError(message.message); if (message.fatal) setView({ phase: 'setup' }); break
     }
   }, [])

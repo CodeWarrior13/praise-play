@@ -51,7 +51,8 @@ export function shareLink(run: RunRecord, mode: string, name?: string, color = 0
       r.wrongGuesses, r.hints ?? 0, Math.round((r.elapsed ?? 0) * 10),
     ]),
   }
-  return `${location.origin}${location.pathname}?r=${toBase64Url(JSON.stringify(packed))}`
+  // /s serves link-preview tags with the card image, then opens the game (netlify/functions/share-page.mts).
+  return `${location.origin}/s?r=${toBase64Url(JSON.stringify(packed))}`
 }
 
 export function readSharedRun(param: string | null): SharedRun | null {
@@ -73,6 +74,12 @@ export function readSharedRun(param: string | null): SharedRun | null {
   } catch {
     return null
   }
+}
+
+/** The card as a picture: 'link' for previews, 'story' for Instagram/TikTok/Facebook stories. */
+export function cardImageUrl(link: string, size: 'link' | 'story'): string {
+  const r = new URL(link).searchParams.get('r') ?? ''
+  return `${new URL(link).origin}/api/card?r=${encodeURIComponent(r)}&size=${size}`
 }
 
 /** The message that goes with the link. */

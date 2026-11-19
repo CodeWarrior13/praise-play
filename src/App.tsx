@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { loadCatalog, loadChristmasCatalog, type Catalog, type Song } from './lib/catalog'
 import { christmasAvailable, seasonYear } from './lib/seasonal'
+import { startAnalytics, trackGame } from './lib/analytics'
+import { StatsDashboard } from './components/StatsDashboard'
 import { ChristmasLights } from './components/ChristmasLights'
 import { dayNumber, localDateKey } from './lib/daily'
 import { prefetchPreviews } from './lib/preview'
@@ -44,7 +46,7 @@ type Game = {
   christmas?: boolean
 }
 
-type Screen = { kind: 'home' } | { kind: 'card'; shared: SharedRun } | { kind: 'multi'; code: string } | { kind: 'play'; game: Game } | { kind: 'summary'; run: RunRecord; mode: Mode; daily: string | null; setup?: SoloSettings; christmas?: boolean }
+type Screen = { kind: 'home' } | { kind: 'stats' } | { kind: 'card'; shared: SharedRun } | { kind: 'multi'; code: string } | { kind: 'play'; game: Game } | { kind: 'summary'; run: RunRecord; mode: Mode; daily: string | null; setup?: SoloSettings; christmas?: boolean }
 
 const scored = (results: SongResult[]) => results.filter((r) => r.outcome !== 'unavailable')
 
@@ -57,6 +59,7 @@ export default function App() {
     const params = new URLSearchParams(location.search)
     const code = params.get('room')
     const shared = readSharedRun(params.get('r'))
+    if (/\/stats\/?$/.test(location.pathname) || params.has('stats')) return { kind: 'stats' }
     return code ? { kind: 'multi', code } : shared ? { kind: 'card', shared } : { kind: 'home' }
   })
   const [stats, setStats] = useState(loadStats)
@@ -113,6 +116,7 @@ export default function App() {
   }, [])
 
   useEffect(() => { applyTheme(findTheme(themeId)) }, [themeId])
+  useEffect(() => { if (screen.kind !== 'stats') startAnalytics() }, [screen.kind])
 
   useEffect(() => {
     loadCatalog().then((loaded) => {
@@ -191,6 +195,7 @@ export default function App() {
   }
 
   function finishGame(game: Game, results: SongResult[]) {
+    trackGame(game.christmas ? 'christmas' : game.mode)
     const counted = scored(results)
     const run: RunRecord = { total: counted.reduce((sum, r) => sum + r.points, 0), results: counted }
     if (game.mode === 'endless') setStats(recordEndless(run.total, counted.filter((r) => r.outcome === 'named').length))
@@ -265,6 +270,8 @@ export default function App() {
         )}
       </div>
     )
+  } else if (screen.kind === 'stats') {
+    body = <StatsDashboard />
   } else if (screen.kind === 'card') {
     body = <ResultsCard shared={screen.shared} catalog={screen.shared.christmas ? xmasCatalog ?? catalog : catalog} onPlay={() => { history.replaceState(null, '', location.pathname); goHome() }} />
   } else if (screen.kind === 'multi') {
@@ -335,7 +342,7 @@ export default function App() {
         {boardOpen && <LeaderboardDialog onClose={closeBoard} />}
         {setupMode && catalog && <SoloSetup mode={setupMode} pool={soloPool()} initial={soloSettings} onClose={closeSetup} onStart={(s) => { setSetupMode(null); if (setupMode === 'endless') startEndless(s); else startRun(s) }} />}
         <InstallPrompt themeId={themeId} onHome={Boolean(catalog) && screen.kind === 'home'} forceOpen={installOpen} onClose={() => setInstallOpen(false)} />
-        <footer>Made for music that lifts the spirit <span>✦</span> Previews & artwork courtesy of Apple Music</footer>
+        <footer>Made for music that lifts the spirit <span>✦</span> Previews & artwork courtesy of Apple Music <span>✦</span> Anonymous play stats (rough location, time played) help improve the game</footer>
       </div>
     </>
   )

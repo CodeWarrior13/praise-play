@@ -181,6 +181,9 @@ export function findTheme(id: string): Theme {
   return themes.find((theme) => theme.id === id) ?? themes[0]
 }
 
+/** Christmas has three icons (holly, lights around the record, lights off the note): one at random per visit. */
+const christmasIcon = ['christmas', 'christmas-lights', 'christmas-strand'][Math.floor(Math.random() * 3)]
+
 export function applyTheme(theme: Theme) {
   const root = document.documentElement
   for (const [key, value] of Object.entries(theme.vars)) root.style.setProperty(key, value)
@@ -189,9 +192,10 @@ export function applyTheme(theme: Theme) {
   // The tab icon, home-screen icon and installed-app colours follow the theme.
   // (An app that's already installed keeps the icon it was installed with.)
   const base = import.meta.env.BASE_URL
-  document.getElementById('app-favicon')?.setAttribute('href', `${base}icons/${theme.id}-192.png`)
-  document.getElementById('app-touch-icon')?.setAttribute('href', `${base}icons/${theme.id}-180.png`)
-  document.getElementById('app-manifest')?.setAttribute('href', `${base}manifest-${theme.id}.webmanifest`)
+  const icon = theme.id === 'christmas' ? christmasIcon : theme.id
+  document.getElementById('app-favicon')?.setAttribute('href', `${base}icons/${icon}-192.png`)
+  document.getElementById('app-touch-icon')?.setAttribute('href', `${base}icons/${icon}-180.png`)
+  document.getElementById('app-manifest')?.setAttribute('href', `${base}manifest-${icon}.webmanifest`)
 }
 
 export const loadThemeId = () => loadSetting('theme', 'sanctuary')
