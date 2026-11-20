@@ -246,7 +246,7 @@ export default function App() {
     else finishGame(game, results)
   }
 
-  const goHome = () => setScreen({ kind: 'home' })
+  const goHome = () => { if (/\/stats\/?$/.test(location.pathname)) history.replaceState(null, '', '/'); setScreen({ kind: 'home' }) }
 
   function quit() {
     if (screen.kind === 'play' && screen.game.mode === 'endless' && screen.game.results.length) finishGame(screen.game, screen.game.results)
@@ -334,7 +334,7 @@ export default function App() {
             <ShareButton />
             <button className="icon-button" onClick={() => setBoardOpen(true)} aria-label="Leaderboard" title="Leaderboard">🏆</button>
             <button className="icon-button" onClick={() => setHelpOpen(true)} aria-label="How to play (H)" title="How to play (H)">?</button>
-            <ThemePicker value={themeId} onChange={changeTheme} />
+            <ThemePicker value={themeId} onChange={changeTheme} onSecret={() => { history.pushState(null, '', '/stats'); setScreen({ kind: 'stats' }) }} />
           </div>
         </header>
         {body}

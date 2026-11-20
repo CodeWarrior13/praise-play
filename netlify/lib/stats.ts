@@ -19,4 +19,4 @@ export const emptyDay = (): Day => ({ visits: 0, players: 0, returning: 0, secon
  * code). To change it, set a STATS_KEY environment variable on Netlify; that
  * replaces this one.
  */
-export const STATS_KEY_HASH = '269cc611bcfa0999988673a6e9b9395a25ee58950ddc2db41ce923561129b2d2'
+export const STATS_KEY_HASH = 'ee2942b0b3d48d31c6902a5bc4dad35b96321c97e17918767c1cb1117c65565b'

@@ -2,8 +2,17 @@ import { useEffect, useRef, useState } from 'react'
 import { themes } from '../lib/theme'
 import { christmasAvailable } from '../lib/seasonal'
 
-export function ThemePicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+export function ThemePicker({ value, onChange, onSecret }: { value: string; onChange: (id: string) => void; onSecret?: () => void }) {
   const [open, setOpen] = useState(false)
+  // Owner's secret door: tap the "Theme" label 7 times quickly to open the stats page.
+  const taps = useRef<number[]>([])
+  const [glow, setGlow] = useState(0)
+  const tap = () => {
+    const now = Date.now()
+    taps.current = [...taps.current.filter((t) => now - t < 2500), now]
+    setGlow(taps.current.length)
+    if (taps.current.length >= 7) { taps.current = []; setGlow(0); setOpen(false); onSecret?.() }
+  }
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -22,7 +31,7 @@ export function ThemePicker({ value, onChange }: { value: string; onChange: (id:
       </button>
       {open && (
         <div className="theme-menu" role="menu">
-          <p>Theme</p>
+          <p className={glow >= 4 ? 'secret-glow' : undefined} style={glow >= 4 ? { opacity: 0.6 + glow * 0.06 } : undefined} onClick={tap}>Theme{glow >= 4 ? ' ' + '✦'.repeat(glow - 3) : ''}</p>
           {themes.filter((theme) => !theme.seasonal || christmasAvailable()).map((theme) => (
             <button key={theme.id} role="menuitemradio" aria-checked={theme.id === value} className={theme.id === value ? 'active' : ''} onClick={() => { onChange(theme.id); setOpen(false) }}>
               <span className="swatch" style={{ background: `linear-gradient(135deg, ${theme.swatch[1]}, ${theme.swatch[2]})`, boxShadow: `0 0 0 3px ${theme.swatch[0]}` }} />
