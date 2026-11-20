@@ -11,11 +11,20 @@ export function HintBox({ hints, used, onTake, disabled = false }: Props) {
       {used > 0 && (
         <ol className="hint-list">
           {hints.slice(0, used).map((hint, i) => (
-            <li key={i} className={hint.kind === 'cover' ? 'cover-hint' : undefined}>
-              {hint.kind === 'cover'
-                ? <img src={hint.cover} alt="Album cover hint" width={72} height={72} />
-                : <span className="hint-bulb" aria-hidden="true">💡</span>}
-              {hint.text}
+            <li key={i} className={`hint-${hint.kind}`}>
+              {hint.kind === 'cover' ? (
+                <span className="hint-sleeve" aria-hidden="true"><img src={hint.cover} alt="" width={96} height={96} /><i /></span>
+              ) : hint.kind === 'year' ? (
+                <span className="hint-calendar" aria-hidden="true"><b>’{String(hint.year).slice(-2)}</b></span>
+              ) : (
+                <span className="hint-bulb" aria-hidden="true">{hint.kind === 'genre' ? '🎧' : '💡'}</span>
+              )}
+              <span className="hint-text">
+                {hint.kind === 'year' ? <><small>Released in</small><strong>{hint.year}</strong></>
+                  : hint.kind === 'genre' ? <><small>Genre</small><strong>{hint.genre}</strong></>
+                  : hint.kind === 'cover' ? <><small>Hint</small><strong>The album cover</strong></>
+                  : hint.text}
+              </span>
               <span className="hint-cost">−{formatPoints(HINT_COSTS[i])}</span>
             </li>
           ))}
