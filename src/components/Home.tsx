@@ -9,6 +9,8 @@ import { CountUp } from './Fx'
 
 type Props = {
   catalog: Catalog
+  /** Christmas mode: the cover strip shows Christmas albums. */
+  coverCatalog?: Catalog
   options: RunOptions
   onOptions: (options: RunOptions) => void
   onStart: () => void
@@ -26,7 +28,7 @@ type Props = {
 }
 
 
-export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless, onMultiplayer, onLeaderboard, onInstall, onHelp, daily, dayNumber, stats, christmas }: Props) {
+export function Home({ catalog, coverCatalog, options, onOptions, onStart, onDaily, onEndless, onMultiplayer, onLeaderboard, onInstall, onHelp, daily, dayNumber, stats, christmas }: Props) {
   // Returning players don't need the rules spelled out every time.
   const [showHelp] = useState(() => !loadSetting('seenHelp', false) && stats.runs === 0)
   const start = (fn: () => void) => () => { saveSetting('seenHelp', true); fn() }
@@ -76,7 +78,7 @@ export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless,
   return (
     <>
       <section className="hero enter">
-        <CoverMarquee catalog={catalog} />
+        <CoverMarquee key={coverCatalog ? 'xmas' : 'all'} catalog={coverCatalog ?? catalog} christmas={Boolean(coverCatalog)} />
         <p className="eyebrow"><span className="live-dot" /> name the song from 0.1 seconds</p>
         <h1>How little do you <span className="gradient-text">need to hear?</span></h1>
         <p className="lede">A split second of Christian music. Unlock more only if you must. {RUN_LENGTH} songs a run, easy to legendary.</p>
@@ -243,20 +245,20 @@ export function Home({ catalog, options, onOptions, onStart, onDaily, onEndless,
 }
 
 /** A slow, endless strip of album covers from the biggest songs. Purely decorative. */
-function CoverMarquee({ catalog }: { catalog: Catalog }) {
+function CoverMarquee({ catalog, christmas = false }: { catalog: Catalog; christmas?: boolean }) {
   const covers = useMemo(() => {
     const picks: string[] = []
     const seen = new Set<string>()
     const ranked: Song[] = [...catalog.songs].sort((a, b) => b.popularity - a.popularity)
     for (const song of ranked) {
       const url = artUrl(song, 160)
-      if (!url || seen.has(song.artist) || song.genres.includes('instrumental') || song.genres.includes('christmas')) continue
+      if (!url || seen.has(song.artist) || song.genres.includes('instrumental') || (!christmas && song.genres.includes('christmas'))) continue
       seen.add(song.artist)
       picks.push(url)
       if (picks.length === 16) break
     }
     return picks
-  }, [catalog])
+  }, [catalog, christmas])
   if (covers.length < 6) return <div className="marquee placeholder" aria-hidden="true" />
   return (
     <div className="marquee" aria-hidden="true">

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, useMemo } from 'react'
 import { loadCatalog, loadChristmasCatalog, withChristmas, type Catalog, type Song } from './lib/catalog'
-import { christmasAvailable, seasonYear } from './lib/seasonal'
+import { christmasAvailable, inChristmasSeason, seasonYear, setChristmasPreview } from './lib/seasonal'
 import { startAnalytics, trackGame } from './lib/analytics'
 import { StatsDashboard } from './components/StatsDashboard'
 import { ChristmasLights } from './components/ChristmasLights'
@@ -73,7 +73,7 @@ export default function App() {
   function rememberSolo(setup: SoloSettings) { setSoloSettings(setup); saveSetting('soloSetup', setup) }
   const closeBoard = useCallback(() => setBoardOpen(false), [])
   // Christmas mode: hidden until it drops (see src/lib/seasonal.ts).
-  const [xmasReady] = useState(christmasAvailable)
+  const [xmasReady, setXmasReady] = useState(christmasAvailable)
   // Switches itself on the first time each season; after that it remembers the player's choice.
   const [xmasOn, setXmasOn] = useState(() => {
     if (!xmasReady) return false
@@ -150,6 +150,8 @@ export default function App() {
     } else if (themeId === 'christmas') {
       changeTheme(loadSetting('themeBeforeChristmas', 'sanctuary'))
     }
+    // Unlocked early with the secret code: switching it off locks it again (type the code to bring it back).
+    if (!on && !inChristmasSeason()) { setChristmasPreview(false); setXmasReady(false) }
   }
 
   /** Songs a solo game draws from: the Christmas songs in Christmas mode, else the Run options. */
@@ -282,7 +284,7 @@ export default function App() {
   } else if (screen.kind === 'multi') {
     body = <Multiplayer catalog={multiCatalog ?? catalog} songsCatalog={catalog} onRoomChristmas={setRoomXmas} christmasPool={xmasReady && xmasOn ? xmasCatalog?.songs : undefined} options={options} initialCode={screen.code} onExit={goHome} />
   } else if (screen.kind === 'home') {
-    body = <Home catalog={catalog} options={options} onOptions={changeOptions} onStart={() => setSetupMode('run')} onDaily={startDaily} onEndless={() => setSetupMode('endless')} onMultiplayer={() => setScreen({ kind: 'multi', code: '' })} onLeaderboard={() => setBoardOpen(true)} onInstall={() => setInstallOpen(true)} onHelp={() => setHelpOpen(true)} daily={loadDaily(today)} dayNumber={dayNumber(today)} stats={stats} christmas={xmasReady ? { on: xmasOn, loading: xmasOn && !xmasCatalog, count: xmasCatalog?.songs.length ?? 0, onToggle: toggleChristmas } : undefined} />
+    body = <Home catalog={catalog} coverCatalog={xmasReady && xmasOn && xmasCatalog ? xmasCatalog : undefined} options={options} onOptions={changeOptions} onStart={() => setSetupMode('run')} onDaily={startDaily} onEndless={() => setSetupMode('endless')} onMultiplayer={() => setScreen({ kind: 'multi', code: '' })} onLeaderboard={() => setBoardOpen(true)} onInstall={() => setInstallOpen(true)} onHelp={() => setHelpOpen(true)} daily={loadDaily(today)} dayNumber={dayNumber(today)} stats={stats} christmas={xmasReady ? { on: xmasOn, loading: xmasOn && !xmasCatalog, count: xmasCatalog?.songs.length ?? 0, onToggle: toggleChristmas } : undefined} />
   } else if (screen.kind === 'play') {
     const { game } = screen
     const index = game.results.length
