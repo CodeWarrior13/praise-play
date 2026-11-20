@@ -1,7 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { excludeThisDevice } from '../lib/analytics'
 import { localDateKey } from '../lib/daily'
-import { christmasPreviewOn, inChristmasSeason, setChristmasPreview } from '../lib/seasonal'
+import { christmasPreviewOn, inChristmasSeason, seasonYear, setChristmasPreview } from '../lib/seasonal'
+import { saveSetting } from '../lib/storage'
+import { loadThemeId, saveThemeId } from '../lib/theme'
+import { ChristmasLights } from './ChristmasLights'
 
 type Place = { visits: number; players: number; seconds: number; games: number }
 type Day = {
@@ -42,23 +46,23 @@ export function StatsDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [xmas, setXmas] = useState(christmasPreviewOn)
-  const [xmasNote, setXmasNote] = useState<string | null>(null)
+  const [popup, setPopup] = useState<null | 'loading' | 'unlocked' | 'hidden'>(null)
 
-  /** The secret word: "Christmas" turns Christmas mode on (or off) on this device, any time of year. */
+  /** Secret code "Christmas": turns Christmas mode on (or off) on this device, any time of year. */
   function toggleXmas() {
     const on = !xmas
     setChristmasPreview(on)
     setXmas(on)
-    setXmasNote(on
-      ? '🎄 Christmas mode unlocked on this device. Go home to play, or host a friends room for Christmas songs.'
-      : inChristmasSeason() ? 'Preview off. (It’s Christmas season, so Christmas mode stays on for everyone.)' : 'Christmas mode hidden again on this device.')
+    if (!on) { setPopup('hidden'); return }
+    setPopup('loading')
+    window.setTimeout(() => setPopup('unlocked'), 1400)
   }
 
   const load = useCallback(async (passphrase: string, count: number) => {
     setLoading(true); setError(null)
     try {
       const response = await fetch(`/api/stats?days=${count}&today=${localDateKey()}`, { headers: { 'x-stats-key': passphrase } })
-      if (response.status === 401) { setError('That passphrase isn’t right.'); setKey(''); try { localStorage.removeItem(KEY) } catch { /* ignore */ } return }
+      if (response.status === 401) { setError('That code doesn’t open anything.'); setKey(''); try { localStorage.removeItem(KEY) } catch { /* ignore */ } return }
       if (!response.ok) throw new Error(String(response.status))
       setDays(((await response.json()) as { days: Day[] }).days)
       setKey(passphrase)
@@ -98,18 +102,18 @@ export function StatsDashboard() {
     return (
       <section className="card stats-page enter">
         <p className="eyebrow">Owner only</p>
-        <h2>Play stats</h2>
-        <p className="muted">Enter your stats passphrase.</p>
+        <h2>The Vault</h2>
+        <p className="muted">Enter a code.</p>
         <form className="stats-login" onSubmit={(e) => {
           e.preventDefault()
           if (input.trim().toLowerCase() === 'christmas') { toggleXmas(); setInput(''); return }
           if (input.trim()) load(input.trim(), range)
         }}>
-          <input type="password" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Passphrase" autoFocus autoComplete="current-password" />
-          <button className="primary" disabled={loading}>{loading ? 'Checking…' : 'Open'}</button>
+          <input type="password" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Code" autoFocus autoComplete="current-password" />
+          <button className="primary" disabled={loading}>{loading ? 'Checking…' : 'Enter'}</button>
         </form>
         {error && <p className="stats-error">{error}</p>}
-        {xmasNote && <XmasNote text={xmasNote} />}
+        {popup && <XmasPopup state={popup} onClose={() => setPopup(null)} />}
       </section>
     )
   }
@@ -121,12 +125,13 @@ export function StatsDashboard() {
       <div className="stats-head">
         <div>
           <p className="eyebrow">Owner only</p>
-          <h2>Play stats</h2>
+          <h2>The Vault</h2>
         </div>
         <button className="text-button" onClick={() => { setKey(''); setDays(null); try { localStorage.removeItem(KEY) } catch { /* ignore */ } }}>Lock</button>
       </div>
       <button className={`stats-xmas${xmas ? ' on' : ''}`} onClick={toggleXmas}>🎄 Christmas mode on this device: <b>{xmas ? 'unlocked' : 'off'}</b></button>
-      {xmasNote && <XmasNote text={xmasNote} />}
+      {popup && <XmasPopup state={popup} onClose={() => setPopup(null)} />}
+      <h3 className="vault-section">Play stats</h3>
       <div className="segmented four stats-range">
         {RANGES.map((r) => <button key={r.days} className={range === r.days ? 'active' : ''} onClick={() => setRange(r.days)}>{r.label}</button>)}
       </div>
@@ -190,10 +195,52 @@ export function StatsDashboard() {
   )
 }
 
-function XmasNote({ text }: { text: string }) {
+/** Popups go on top of the whole page (the stats card is animated, which would trap them inside it). */
+const OnTop = ({ children }: { children: ReactNode }) => createPortal(children, document.body)
+
+function XmasPopup(props: { state: 'loading' | 'unlocked' | 'hidden'; onClose: () => void }) {
+  return <OnTop><XmasPopupInner {...props} /></OnTop>
+}
+
+function XmasPopupInner({ state, onClose }: { state: 'loading' | 'unlocked' | 'hidden'; onClose: () => void }) {
+  function play() {
+    // Home with Christmas switched on: Christmas songs, the Christmas theme, lights and snow.
+    saveSetting('christmasMode', { season: seasonYear(), on: true })
+    const theme = loadThemeId()
+    if (theme !== 'christmas') { saveSetting('themeBeforeChristmas', theme); saveThemeId('christmas') }
+    location.href = '/'
+  }
+  if (state === 'loading') {
+    return (
+      <div className="overlay xmas-pop-overlay">
+        <div className="xmas-pop loading" role="status"><span className="xmas-gift">🎁</span><p>Unwrapping…</p></div>
+      </div>
+    )
+  }
+  if (state === 'hidden') {
+    return (
+      <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+        <div className="xmas-pop" role="dialog" aria-modal="true">
+          <h2>Christmas mode hidden</h2>
+          <p className="muted">{inChristmasSeason() ? 'It’s Christmas season, so it stays on for everyone anyway.' : 'It’s hidden on this device again until December 1st. Type Christmas to bring it back.'}</p>
+          <button className="primary wide" onClick={onClose}>OK</button>
+        </div>
+      </div>
+    )
+  }
   return (
-    <p className="stats-xmas-note">
-      {text} <a href="/" onClick={(e) => { e.preventDefault(); location.href = '/' }}>Go home →</a>
-    </p>
+    <>
+    <div className="overlay xmas-pop-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="xmas-pop unlocked" role="dialog" aria-modal="true" aria-labelledby="xmas-pop-title">
+        <div className="xmas-tree" aria-hidden="true">🎄</div>
+        <p className="eyebrow">Secret unlocked</p>
+        <h2 id="xmas-pop-title">Christmas mode</h2>
+        <p>Christmas songs, lights and snow on this device, any time of year. Host a friends room and everyone who joins gets it too.</p>
+        <button className="primary big wide shine" onClick={play} autoFocus>🎄 Play Christmas mode</button>
+        <button className="text-button" onClick={onClose}>Not now</button>
+      </div>
+    </div>
+    <div className="xmas-pop-lights"><ChristmasLights /></div>
+    </>
   )
 }
