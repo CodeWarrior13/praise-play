@@ -5,6 +5,7 @@ import { christmasAvailable } from '../lib/seasonal'
 import { CARD_STYLES, CHRISTMAS_CARD } from '../lib/shareRun'
 import { INVITES, inviteCovers, inviteLink, inviteTitle, type Invite } from '../lib/invite'
 import { InviteCard } from './InviteCard'
+import { ShareActions } from './ShareActions'
 
 type Props = { catalog: Catalog | null; christmas: Catalog | null }
 
@@ -27,8 +28,6 @@ function InviteDialog({ catalog, christmas, onClose }: { catalog: Catalog; chris
   const [name, setName] = useState(() => loadSetting('playerName', ''))
   const [showBest, setShowBest] = useState(best > 0)
   const [pick, setPick] = useState(0)
-  const [copied, setCopied] = useState(false)
-  const [imageState, setImageState] = useState<'idle' | 'making' | 'saved' | 'failed'>('idle')
   const ref = useRef<HTMLDivElement>(null)
   const covers = useMemo(() => inviteCovers(catalog.songs, 6), [catalog])
   const invite: Invite = { name: name.trim() || undefined, color, best: showBest ? best : 0, christmas }
@@ -42,50 +41,9 @@ function InviteDialog({ catalog, christmas, onClose }: { catalog: Catalog; chris
     return () => document.removeEventListener('keydown', esc)
   }, [onClose])
 
-  // Draw the link picture ahead of time, so it's ready the moment a friend's phone asks for it.
-  useEffect(() => {
-    const timer = window.setTimeout(() => { fetch(imageUrl(link, 'link')).catch(() => {}) }, 900)
-    return () => window.clearTimeout(timer)
-  }, [link])
-
   function pickColor(index: number) {
     setColor(index)
     saveSetting('cardColor', index)
-  }
-
-  async function send(copyOnly: boolean) {
-    saveSetting('playerName', name.trim())
-    try {
-      if (!copyOnly && navigator.share && matchMedia('(pointer: coarse)').matches) { await navigator.share({ title: inviteTitle(invite), text: message, url: link }); return }
-      await navigator.clipboard.writeText(`${message} ${link}`)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 2000)
-    } catch {
-      // Sharing was cancelled.
-    }
-  }
-
-  async function sendImage() {
-    saveSetting('playerName', name.trim())
-    setImageState('making')
-    try {
-      const response = await fetch(imageUrl(link, 'story'))
-      if (!response.ok) throw new Error(String(response.status))
-      const file = new File([await response.blob()], 'praise-play-invite.jpg', { type: 'image/jpeg' })
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], text: `${message} ${link}` })
-      } else {
-        const a = document.createElement('a')
-        a.href = URL.createObjectURL(file)
-        a.download = file.name
-        a.click()
-        window.setTimeout(() => URL.revokeObjectURL(a.href), 4000)
-      }
-      setImageState('saved')
-    } catch (error) {
-      setImageState((error as Error).name === 'AbortError' ? 'idle' : 'failed')
-    }
-    window.setTimeout(() => setImageState('idle'), 2500)
   }
 
   return (
@@ -130,13 +88,7 @@ function InviteDialog({ catalog, christmas, onClose }: { catalog: Catalog; chris
           <small>↻ Another message</small>
         </button>
 
-        <div className="summary-actions">
-          <button className="primary shine" onClick={() => send(false)}>{copied ? 'Copied!' : 'Share'}</button>
-          <button className="ghost" onClick={() => send(true)}>Copy link</button>
-        </div>
-        <button className="text-button share-image" onClick={sendImage} disabled={imageState === 'making'}>
-          {imageState === 'making' ? 'Making your image…' : imageState === 'saved' ? 'Done ✓' : imageState === 'failed' ? 'Couldn’t make the image, try again' : '📸 Share as image (Instagram, TikTok, Facebook stories)'}
-        </button>
+        <ShareActions link={link} message={message} imageUrl={(size) => imageUrl(link, size)} fileName="praise-play-invite" onBeforeShare={() => saveSetting('playerName', name.trim())} />
       </div>
     </div>
   )

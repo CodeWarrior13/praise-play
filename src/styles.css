@@ -841,3 +841,17 @@ body[data-overlay] .page > *:not(.overlay) { filter: saturate(.7); transition: f
 .xmas-pop.unlocked .text-button { color: rgba(255,255,255,.75); }
 .xmas-tree { font-size: 64px; filter: drop-shadow(0 8px 20px rgba(0,0,0,.4)); animation: popIn .7s var(--spring) both; }
 .xmas-pop-lights .xmas-lights { z-index: 60; }
+
+/* Spotify-style share: one big Share (card picture + link), then a row of apps. */
+.share-actions { display: grid; gap: 14px; margin-top: 4px; }
+.share-apps { display: flex; gap: 14px; overflow-x: auto; padding: 2px 2px 6px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.share-apps::-webkit-scrollbar { display: none; }
+.share-app { flex: 0 0 auto; display: grid; justify-items: center; gap: 6px; width: 64px; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: 11.5px; font-weight: 700; text-decoration: none; cursor: pointer; }
+.share-app:disabled { opacity: .6; }
+.share-app-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: var(--surface-2, var(--surface)); border: 1px solid var(--line); color: var(--text); font-size: 22px; transition: transform .25s var(--spring); }
+.share-app:hover .share-app-icon { transform: translateY(-2px) scale(1.05); }
+.app-whatsapp .share-app-icon { background: #25d366; color: #fff; border-color: transparent; }
+.app-facebook .share-app-icon { background: #1877f2; color: #fff; border-color: transparent; }
+.app-x .share-app-icon { background: #000; color: #fff; border-color: rgba(255,255,255,.2); }
+.share-app-icon.story { background: linear-gradient(45deg, #feda75, #fa7e1e, #d62976, #962fbf, #4f5bd5); border-color: transparent; }
+.share-failed { margin: 0; color: var(--bad); font-size: 13px; font-weight: 700; text-align: center; }
