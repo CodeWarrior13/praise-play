@@ -37,7 +37,8 @@ export { DIFFICULTIES, poolForDifficulty } from './difficulty'
 /** Which part of the catalog the room plays: everything, Popular Picks, or the Assorted Playlist. */
 export type RoomLibrary = 'all' | 'mine' | 'playlist'
 /** roundSeconds: time to answer each song; 0 = no limit. */
-export type Settings = { rounds: number; mode: GameMode; difficulty: Difficulty; library: RoomLibrary; roundSeconds: number }
+/** christmas: the host has Christmas mode on, so everyone in the room gets the Christmas look. */
+export type Settings = { rounds: number; mode: GameMode; difficulty: Difficulty; library: RoomLibrary; roundSeconds: number; christmas?: boolean }
 
 /** Everything the host tells players. The host's own screen renders the same messages. */
 export type ServerMessage =

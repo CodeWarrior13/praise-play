@@ -17,7 +17,7 @@ import { GuessBox } from './GuessBox'
 import { ListenLinks } from './ListenLinks'
 import { Confetti, CountUp } from './Fx'
 
-type Props = { catalog: Catalog; options: RunOptions; initialCode?: string; onExit: () => void; /** The normal songs the room's library is picked from (catalog also has the Christmas songs). */ songsCatalog?: Catalog; /** Host has Christmas mode on: the room plays Christmas songs. */ christmasPool?: Song[] }
+type Props = { catalog: Catalog; options: RunOptions; initialCode?: string; onExit: () => void; /** The normal songs the room's library is picked from (catalog also has the Christmas songs). */ songsCatalog?: Catalog; /** Host has Christmas mode on: the room plays Christmas songs. */ christmasPool?: Song[]; /** The room turned the Christmas look on or off (guests follow the host). */ onRoomChristmas?: (on: boolean) => void }
 
 type View =
   | { phase: 'setup' }
@@ -29,7 +29,7 @@ type View =
 
 const ROUND_CHOICES = [5, 10, 15, 20]
 
-export function Multiplayer({ catalog, options, initialCode = '', onExit, christmasPool, songsCatalog }: Props) {
+export function Multiplayer({ catalog, options, initialCode = '', onExit, christmasPool, songsCatalog, onRoomChristmas }: Props) {
   const library_ = songsCatalog ?? catalog
   const [name, setName] = useState(() => loadSetting('playerName', ''))
   const [code, setCode] = useState(cleanCode(initialCode))
@@ -44,6 +44,7 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit, christ
   const [library, setLibrary] = useState<RoomLibrary>('all')
   const [roundSeconds, setRoundSeconds] = useState(DEFAULT_ROUND_SECONDS)
   const [answered, setAnswered] = useState<string[]>([])
+  const [roomXmas, setRoomXmas] = useState(false)
   const [starting, setStarting] = useState(false)
   const host = useRef<HostRoom | null>(null)
   const client = useRef<ClientRoom | null>(null)
@@ -58,6 +59,13 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit, christ
   const libraryPool = useMemo(() => filterSongs(library_, { ...defaultOptions, library }), [library_, library])
   const pool = christmasPool?.length ? christmasPool : libraryPool
 
+  const roomChristmas = useRef(onRoomChristmas)
+  roomChristmas.current = onRoomChristmas
+  // Hosting with Christmas mode on: tell the room, so every guest gets the lights and theme too.
+  const hostChristmas = Boolean(christmasPool?.length)
+  useEffect(() => { if (isHost) host.current?.setSettings({ christmas: hostChristmas }) }, [isHost, hostChristmas])
+  useEffect(() => () => roomChristmas.current?.(false), [])
+
   const onMessage = useCallback((message: ServerMessage) => {
     switch (message.t) {
       case 'welcome': setMe(message.you); setRoomCode(message.code); setView((v) => (v.phase === 'connecting' ? { phase: 'lobby' } : v)); break
@@ -68,6 +76,8 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit, christ
         setDifficulty(message.settings.difficulty)
         setLibrary(message.settings.library ?? 'all')
         setRoundSeconds(message.settings.roundSeconds ?? DEFAULT_ROUND_SECONDS)
+        setRoomXmas(Boolean(message.settings.christmas))
+        roomChristmas.current?.(Boolean(message.settings.christmas))
         if (message.phase === 'lobby') setView((v) => (v.phase === 'end' || v.phase === 'connecting' || v.phase === 'lobby' ? { phase: 'lobby' } : v))
         break
       case 'round':
@@ -234,7 +244,7 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit, christ
           </>
         ) : (
           <>
-            <p className="mp-mode-note">{mode === 'endless' ? `∞ Endless · ${ENDLESS_LIVES} lives each` : `${rounds} songs`} · {DIFFICULTIES.find((d) => d.id === difficulty)?.label} · {library === 'all' ? 'Full Catalog' : library === 'mine' ? 'Popular Picks' : 'Assorted Playlist'} · {timeLabel(roundSeconds, true)}</p>
+            <p className="mp-mode-note">{mode === 'endless' ? `∞ Endless · ${ENDLESS_LIVES} lives each` : `${rounds} songs`} · {DIFFICULTIES.find((d) => d.id === difficulty)?.label} · {roomXmas ? '🎄 Christmas songs' : library === 'all' ? 'Full Catalog' : library === 'mine' ? 'Popular Picks' : 'Assorted Playlist'} · {timeLabel(roundSeconds, true)}</p>
             <p className="mp-status"><span className="spinner small" /> Waiting for the host to start…</p>
           </>
         )}

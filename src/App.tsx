@@ -117,7 +117,10 @@ export default function App() {
     setHelpOpen(false)
   }, [])
 
-  useEffect(() => { applyTheme(findTheme(themeId)) }, [themeId])
+  // A friend's Christmas room: guests get the Christmas look while they're in it (nothing is saved).
+  const [roomXmas, setRoomXmas] = useState(false)
+  useEffect(() => { if (screen.kind !== 'multi') setRoomXmas(false) }, [screen.kind])
+  useEffect(() => { applyTheme(findTheme(roomXmas && !xmasOn ? 'christmas' : themeId)) }, [themeId, roomXmas, xmasOn])
   useEffect(() => { if (screen.kind !== 'stats') startAnalytics() }, [screen.kind])
 
   useEffect(() => {
@@ -277,7 +280,7 @@ export default function App() {
   } else if (screen.kind === 'card') {
     body = <ResultsCard shared={screen.shared} catalog={screen.shared.christmas ? xmasCatalog ?? catalog : catalog} onPlay={() => { history.replaceState(null, '', location.pathname); goHome() }} />
   } else if (screen.kind === 'multi') {
-    body = <Multiplayer catalog={multiCatalog ?? catalog} songsCatalog={catalog} christmasPool={xmasReady && xmasOn ? xmasCatalog?.songs : undefined} options={options} initialCode={screen.code} onExit={goHome} />
+    body = <Multiplayer catalog={multiCatalog ?? catalog} songsCatalog={catalog} onRoomChristmas={setRoomXmas} christmasPool={xmasReady && xmasOn ? xmasCatalog?.songs : undefined} options={options} initialCode={screen.code} onExit={goHome} />
   } else if (screen.kind === 'home') {
     body = <Home catalog={catalog} options={options} onOptions={changeOptions} onStart={() => setSetupMode('run')} onDaily={startDaily} onEndless={() => setSetupMode('endless')} onMultiplayer={() => setScreen({ kind: 'multi', code: '' })} onLeaderboard={() => setBoardOpen(true)} onInstall={() => setInstallOpen(true)} onHelp={() => setHelpOpen(true)} daily={loadDaily(today)} dayNumber={dayNumber(today)} stats={stats} christmas={xmasReady ? { on: xmasOn, loading: xmasOn && !xmasCatalog, count: xmasCatalog?.songs.length ?? 0, onToggle: toggleChristmas } : undefined} />
   } else if (screen.kind === 'play') {
@@ -322,7 +325,7 @@ export default function App() {
   return (
     <>
       <Backdrop />
-      {xmasOn && <ChristmasLights />}
+      {(xmasOn || roomXmas) && <ChristmasLights />}
       <Splash ready={Boolean(catalog) || Boolean(error)} />
       <div className="page">
         <header className="topbar">
