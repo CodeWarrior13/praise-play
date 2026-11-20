@@ -1,9 +1,9 @@
 /**
- * Draws a shared results card as a PNG, server-side, so the link shows the card
+ * Draws a shared results card as a JPEG, server-side, so the link shows the card
  * in iMessage, WhatsApp, email, Discord, Facebook, X… (link previews), and so
  * players can post it as an image to Instagram/TikTok/Facebook stories.
  *
- * Satori turns the layout into SVG; resvg (WebAssembly) turns that into PNG.
+ * Satori turns the layout into SVG; resvg (WebAssembly) turns that into pixels.
  * Fonts and the renderer are fetched from the site itself (public/og/).
  */
 import satori from 'satori'
@@ -121,15 +121,14 @@ export async function renderCard(origin: string, shared: SharedRun, size: CardSi
   const faint = dark ? 'rgba(29,20,32,.5)' : 'rgba(255,255,255,.55)'
   const rowBg = dark ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.24)'
   const named = shared.results.filter((r) => r.outcome === 'named').length
-  const host = new URL(origin).host
 
   const badge = h('div', { alignItems: 'center', gap: 10, padding: story ? '12px 24px' : '9px 18px', borderRadius: 999, border: `2px solid ${dark ? 'rgba(0,0,0,.15)' : 'rgba(255,255,255,.3)'}`, color: soft, fontSize: story ? 30 : 20, fontWeight: 800, letterSpacing: 3 },
     note(story ? 30 : 22, soft), christmas ? 'PRAISE PLAY · CHRISTMAS' : 'PRAISE PLAY')
 
-  const list = h('div', { flexDirection: 'column', gap: story ? 18 : 10, width: story ? width - 120 : 600 },
+  const list = h('div', { flexDirection: 'column', gap: story ? 18 : 10, width: story ? width - 120 : 580 },
     ...rows.map(({ result, song }, i) => h('div', { alignItems: 'center', gap: story ? 26 : 18, padding: story ? 18 : 10, borderRadius: story ? 26 : 18, background: rowBg },
       images[i] ? img(images[i] as string, coverSize, story ? 16 : 12) : h('div', { width: coverSize, height: coverSize, borderRadius: 12, background: 'rgba(255,255,255,.15)', alignItems: 'center', justifyContent: 'center' }, note(coverSize / 2.4, faint)),
-      h('div', { flexDirection: 'column', flexGrow: 1, width: story ? 620 : 360 },
+      h('div', { flexDirection: 'column', flexGrow: 1, width: story ? 620 : 340 },
         h('div', { color: ink, fontSize: story ? 38 : 25, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }, song?.title ?? 'Unknown song'),
         h('div', { color: soft, fontSize: story ? 30 : 20, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }, song?.artist ?? ''),
         story ? h('div', { color: faint, fontSize: 26, fontWeight: 700, marginTop: 4 }, result.outcome === 'named' ? `Heard ${result.seconds < 1 ? result.seconds : Math.round(result.seconds)}s${result.elapsed ? ` · named in ${result.elapsed}s` : ''}` : 'Skipped') : null,
@@ -139,14 +138,17 @@ export async function renderCard(origin: string, shared: SharedRun, size: CardSi
   )
 
   const who = shared.name ? `${shared.name} scored` : 'A friend scored'
+  // Shrink big scores so they never spill into the song list.
+  const digits = fmt(shared.total).length
+  const totalSize = story ? (digits > 6 ? 160 : 190) : digits > 6 ? 96 : digits > 5 ? 112 : 128
   const total = h('div', { alignItems: 'flex-end', gap: 12 },
-    h('div', { fontFamily: 'Fraunces', fontSize: story ? 190 : 132, lineHeight: 1, color: ink, letterSpacing: -4 }, fmt(shared.total)),
+    h('div', { fontFamily: 'Fraunces', fontSize: totalSize, lineHeight: 1, color: ink, letterSpacing: -4 }, fmt(shared.total)),
     h('div', { fontSize: story ? 44 : 32, fontWeight: 800, color: soft, marginBottom: story ? 22 : 14 }, 'pts'),
   )
   const verdict = `Named ${named} of ${shared.results.length}. Can you beat it?`
   const cta = h('div', { alignItems: 'center', gap: 12, padding: story ? '22px 40px' : '14px 26px', borderRadius: 999, background: dark ? '#1d1420' : '#ffffff', color: dark ? '#ffffff' : '#2a0f5c', fontSize: story ? 34 : 22, fontWeight: 800 },
     { type: 'svg', props: { width: story ? 30 : 20, height: story ? 30 : 20, viewBox: '0 0 24 24', children: [{ type: 'path', props: { fill: dark ? '#ffffff' : '#2a0f5c', d: 'M7 4.5v15l12.5-7.5L7 4.5Z' } }] } } as Node,
-    `Play at ${host}`)
+    'Play Praise Play')
 
   const snow = christmas
     ? Array.from({ length: 30 }, (_, i) => h('div', { position: 'absolute', left: `${(i * 37) % 100}%`, top: `${(i * 61) % 100}%`, width: 5 + (i % 3) * 3, height: 5 + (i % 3) * 3, borderRadius: 999, background: 'rgba(255,255,255,.16)' }))
@@ -163,9 +165,9 @@ export async function renderCard(origin: string, shared: SharedRun, size: CardSi
       h('div', { flexGrow: 1 }),
       cta,
     )
-    : h('div', { width, height, alignItems: 'center', justifyContent: 'space-between', padding: '0 56px', background: bg, fontFamily: 'Manrope', position: 'relative' },
+    : h('div', { width, height, alignItems: 'center', justifyContent: 'center', gap: 44, padding: '0 50px', background: bg, fontFamily: 'Manrope', position: 'relative' },
       ...snow,
-      h('div', { flexDirection: 'column', alignItems: 'flex-start', width: 470, gap: 6 },
+      h('div', { flexDirection: 'column', alignItems: 'flex-start', width: 476, flexShrink: 0, gap: 6 },
         badge,
         h('div', { color: ink, fontSize: 40, fontWeight: 800, marginTop: 26 }, who),
         total,
