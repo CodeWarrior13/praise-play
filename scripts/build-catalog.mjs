@@ -88,7 +88,7 @@ const CHRISTMAS_SONGS = [
   { title: 'Have Yourself a Merry Little Christmas', artist: 'Frank Sinatra', popularity: 86 },
   { title: 'Rudolph the Red-Nosed Reindeer', artist: 'Gene Autry', popularity: 88 },
   { title: 'Blue Christmas', artist: 'Elvis Presley', popularity: 85 },
-  { title: "Baby, It's Cold Outside", artist: 'Dean Martin', popularity: 84 },
+  { title: "Baby It's Cold Outside", artist: 'Idina Menzel', popularity: 84 },
   { title: 'Santa Tell Me', artist: 'Ariana Grande', popularity: 86 },
   { title: 'Underneath the Tree', artist: 'Kelly Clarkson', popularity: 86 },
   { title: 'Mistletoe', artist: 'Justin Bieber', popularity: 85 },
@@ -96,7 +96,7 @@ const CHRISTMAS_SONGS = [
   { title: 'Happy Xmas (War Is Over)', artist: 'John Lennon', popularity: 82 },
   { title: 'Christmas (Baby Please Come Home)', artist: 'Darlene Love', popularity: 82 },
   { title: 'Run Rudolph Run', artist: 'Chuck Berry', popularity: 82 },
-  { title: 'Santa Claus Is Comin\' to Town', artist: 'The Jackson 5', popularity: 80 },
+  { title: 'Santa Claus Is Comin\' to Town', artist: 'Lawrence', popularity: 80 },
   { title: 'Little Saint Nick', artist: 'The Beach Boys', popularity: 80 },
   { title: 'Santa Baby', artist: 'Eartha Kitt', popularity: 80 },
   { title: "Do They Know It's Christmas?", artist: 'Band Aid', popularity: 78 },
@@ -153,7 +153,7 @@ const CHRISTMAS_SONGS = [
   // Christmas worship & gospel
   { title: 'O Holy Night', artist: 'Josh Groban', popularity: 80 },
   { title: 'Do You Hear What I Hear?', artist: 'Whitney Houston', popularity: 76 },
-  { title: 'Joy to the World', artist: 'Whitney Houston', popularity: 70 },
+  { title: 'Joy to the World', artist: 'for KING & COUNTRY', popularity: 72 },
   { title: "Breath of Heaven (Mary's Song)", artist: 'Amy Grant', popularity: 70 },
   { title: 'Noel', artist: 'Chris Tomlin', popularity: 72 },
   { title: 'Light of the World', artist: 'Lauren Daigle', popularity: 68 },
@@ -162,6 +162,13 @@ const CHRISTMAS_SONGS = [
   { title: 'Born Is the King', artist: 'Hillsong Worship', popularity: 58 },
   { title: 'Hallelujah (Light Has Come)', artist: 'BarlowGirl', popularity: 56 },
   { title: 'Go Tell It on the Mountain', artist: 'Mahalia Jackson', popularity: 58 },
+  // From the player's own Christmas playlist
+  { title: "It's a Marshmallow World", artist: 'Jo Stafford', popularity: 66 },
+  { title: 'My Favourite Time of Year', artist: 'Pete Masitti', popularity: 56 },
+  { title: "That's Christmas to Me", artist: 'Pentatonix', popularity: 72 },
+  { title: 'Joy! He Shall Reign', artist: 'Big Daddy Weave', popularity: 58 },
+  { title: 'God Rest Ye Merry Gentlemen', artist: 'Tenth Avenue North', popularity: 62 },
+  { title: 'Baby Boy', artist: 'for KING & COUNTRY', popularity: 60 },
 ]
 
 const CHRISTMAS = /christmas|silent night|holy night|joy to the world|hark the herald|come all ye faithful|go tell it on the mountain|little drummer boy|mary,? did you know|away in a manger|what child is this|angels we have heard|god rest ye|first no[eë]l|o come,? o come,? emmanuel|carol of the bells|o little town of bethlehem|it came upon the midnight|we three kings|feliz navidad|white christmas|noel\b/i
