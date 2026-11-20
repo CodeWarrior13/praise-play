@@ -39,3 +39,12 @@ export function christmasAvailable(): boolean {
   available ??= inChristmasSeason() || previewing()
   return available
 }
+
+/** The owner's secret: typing "Christmas" in the stats box turns the early preview on or off on this device. */
+export function christmasPreviewOn(): boolean {
+  try { return localStorage.getItem(KEY) === '1' } catch { return false }
+}
+export function setChristmasPreview(on: boolean) {
+  try { if (on) localStorage.setItem(KEY, '1'); else localStorage.removeItem(KEY) } catch { /* ignore */ }
+  available = null
+}

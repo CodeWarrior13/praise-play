@@ -17,7 +17,7 @@ import { GuessBox } from './GuessBox'
 import { ListenLinks } from './ListenLinks'
 import { Confetti, CountUp } from './Fx'
 
-type Props = { catalog: Catalog; options: RunOptions; initialCode?: string; onExit: () => void }
+type Props = { catalog: Catalog; options: RunOptions; initialCode?: string; onExit: () => void; /** The normal songs the room's library is picked from (catalog also has the Christmas songs). */ songsCatalog?: Catalog; /** Host has Christmas mode on: the room plays Christmas songs. */ christmasPool?: Song[] }
 
 type View =
   | { phase: 'setup' }
@@ -29,7 +29,8 @@ type View =
 
 const ROUND_CHOICES = [5, 10, 15, 20]
 
-export function Multiplayer({ catalog, options, initialCode = '', onExit }: Props) {
+export function Multiplayer({ catalog, options, initialCode = '', onExit, christmasPool, songsCatalog }: Props) {
+  const library_ = songsCatalog ?? catalog
   const [name, setName] = useState(() => loadSetting('playerName', ''))
   const [code, setCode] = useState(cleanCode(initialCode))
   const [view, setView] = useState<View>({ phase: 'setup' })
@@ -50,11 +51,12 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
   // The room picks its own library in the lobby; Run options from the home screen don't apply.
   void options
   const libraryCounts = useMemo(() => ({
-    all: filterSongs(catalog, defaultOptions).length,
-    mine: filterSongs(catalog, { ...defaultOptions, library: 'mine' }).length,
-    playlist: filterSongs(catalog, { ...defaultOptions, library: 'playlist' }).length,
-  }), [catalog])
-  const pool = useMemo(() => filterSongs(catalog, { ...defaultOptions, library }), [catalog, library])
+    all: filterSongs(library_, defaultOptions).length,
+    mine: filterSongs(library_, { ...defaultOptions, library: 'mine' }).length,
+    playlist: filterSongs(library_, { ...defaultOptions, library: 'playlist' }).length,
+  }), [library_])
+  const libraryPool = useMemo(() => filterSongs(library_, { ...defaultOptions, library }), [library_, library])
+  const pool = christmasPool?.length ? christmasPool : libraryPool
 
   const onMessage = useCallback((message: ServerMessage) => {
     switch (message.t) {
@@ -200,6 +202,9 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
               <button className={mode === 'endless' ? 'active' : ''} onClick={() => host.current?.setSettings({ mode: 'endless' })}>∞<small>Endless</small></button>
             </div>
             <div className="option-label"><span>Songs</span></div>
+            {christmasPool?.length ? (
+              <p className="mp-xmas">🎄 Christmas room: everyone gets the {christmasPool.length} Christmas songs. Turn Christmas mode off on the home screen for the normal songs.</p>
+            ) : (
             <div className="segmented three library room-library">
               {([['all', 'Full Catalog', '◎'], ['mine', 'Popular Picks', '★'], ['playlist', 'Assorted Playlist', '✦']] as [RoomLibrary, string, string][]).map(([id, label, icon]) => (
                 <button key={id} className={library === id ? 'active' : ''} onClick={() => host.current?.setSettings({ library: id })}>
@@ -207,6 +212,7 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit }: Prop
                 </button>
               ))}
             </div>
+            )}
             <div className="option-label"><span>Time per song</span><span className="diff-hint">{timeLabel(roundSeconds, true)}</span></div>
             <div className="segmented time-picker">
               {ROUND_TIME_CHOICES.map((s) => (

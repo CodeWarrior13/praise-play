@@ -62,6 +62,15 @@ export const loadCatalog = () => load('catalog.json')
 /** The parked Christmas songs (seasonal/christmas.json), only fetched when Christmas mode is on. */
 export const loadChristmasCatalog = () => load('christmas.json')
 
+/** The main catalog plus the Christmas songs, so a friend's Christmas room works on any device. */
+export function withChristmas(main: Catalog, xmas: Catalog | null): Catalog {
+  if (!xmas) return main
+  const extra = xmas.songs.filter((s) => !main.byId.has(s.id))
+  const byId = new Map(main.byId)
+  for (const song of extra) byId.set(song.id, song)
+  return { ...main, songs: [...main.songs, ...extra], byId }
+}
+
 function parse(raw: RawCatalog): Catalog {
   const counts = new Array(raw.artists.length).fill(0)
   const songs: Song[] = raw.songs.map(([trackId, title, artistIndex, year, popularity, genres, art = -1, flags = 0]) => {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { excludeThisDevice } from '../lib/analytics'
 import { localDateKey } from '../lib/daily'
+import { christmasPreviewOn, inChristmasSeason, setChristmasPreview } from '../lib/seasonal'
 
 type Place = { visits: number; players: number; seconds: number; games: number }
 type Day = {
@@ -40,6 +41,18 @@ export function StatsDashboard() {
   const [days, setDays] = useState<Day[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [xmas, setXmas] = useState(christmasPreviewOn)
+  const [xmasNote, setXmasNote] = useState<string | null>(null)
+
+  /** The secret word: "Christmas" turns Christmas mode on (or off) on this device, any time of year. */
+  function toggleXmas() {
+    const on = !xmas
+    setChristmasPreview(on)
+    setXmas(on)
+    setXmasNote(on
+      ? '🎄 Christmas mode unlocked on this device. Go home to play, or host a friends room for Christmas songs.'
+      : inChristmasSeason() ? 'Preview off. (It’s Christmas season, so Christmas mode stays on for everyone.)' : 'Christmas mode hidden again on this device.')
+  }
 
   const load = useCallback(async (passphrase: string, count: number) => {
     setLoading(true); setError(null)
@@ -87,11 +100,16 @@ export function StatsDashboard() {
         <p className="eyebrow">Owner only</p>
         <h2>Play stats</h2>
         <p className="muted">Enter your stats passphrase.</p>
-        <form className="stats-login" onSubmit={(e) => { e.preventDefault(); if (input.trim()) load(input.trim(), range) }}>
+        <form className="stats-login" onSubmit={(e) => {
+          e.preventDefault()
+          if (input.trim().toLowerCase() === 'christmas') { toggleXmas(); setInput(''); return }
+          if (input.trim()) load(input.trim(), range)
+        }}>
           <input type="password" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Passphrase" autoFocus autoComplete="current-password" />
           <button className="primary" disabled={loading}>{loading ? 'Checking…' : 'Open'}</button>
         </form>
         {error && <p className="stats-error">{error}</p>}
+        {xmasNote && <XmasNote text={xmasNote} />}
       </section>
     )
   }
@@ -107,6 +125,8 @@ export function StatsDashboard() {
         </div>
         <button className="text-button" onClick={() => { setKey(''); setDays(null); try { localStorage.removeItem(KEY) } catch { /* ignore */ } }}>Lock</button>
       </div>
+      <button className={`stats-xmas${xmas ? ' on' : ''}`} onClick={toggleXmas}>🎄 Christmas mode on this device: <b>{xmas ? 'unlocked' : 'off'}</b></button>
+      {xmasNote && <XmasNote text={xmasNote} />}
       <div className="segmented four stats-range">
         {RANGES.map((r) => <button key={r.days} className={range === r.days ? 'active' : ''} onClick={() => setRange(r.days)}>{r.label}</button>)}
       </div>
@@ -167,5 +187,13 @@ export function StatsDashboard() {
         </>
       )}
     </section>
+  )
+}
+
+function XmasNote({ text }: { text: string }) {
+  return (
+    <p className="stats-xmas-note">
+      {text} <a href="/" onClick={(e) => { e.preventDefault(); location.href = '/' }}>Go home →</a>
+    </p>
   )
 }

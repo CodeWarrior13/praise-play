@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { loadCatalog, loadChristmasCatalog, type Catalog, type Song } from './lib/catalog'
+import { useCallback, useEffect, useState, useMemo } from 'react'
+import { loadCatalog, loadChristmasCatalog, withChristmas, type Catalog, type Song } from './lib/catalog'
 import { christmasAvailable, seasonYear } from './lib/seasonal'
 import { startAnalytics, trackGame } from './lib/analytics'
 import { StatsDashboard } from './components/StatsDashboard'
@@ -90,11 +90,13 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const [xmasCatalog, setXmasCatalog] = useState<Catalog | null>(null)
-  const needXmas = xmasOn || (screen.kind === 'card' && screen.shared.christmas)
+  const needXmas = xmasOn || screen.kind === 'multi' || (screen.kind === 'card' && screen.shared.christmas)
   useEffect(() => {
     if (needXmas && !xmasCatalog) loadChristmasCatalog().then(setXmasCatalog, () => setXmasOn(false))
   }, [needXmas, xmasCatalog])
   const today = localDateKey()
+  // Friends rooms look songs up in both lists, so a host's Christmas room works for every guest.
+  const multiCatalog = useMemo(() => (catalog ? withChristmas(catalog, xmasCatalog) : null), [catalog, xmasCatalog])
 
   // H opens help. During a round the search box decides whether H was a tap or the
   // start of a word ("Hillsong") and sends a shortcut; elsewhere it opens right away.
@@ -275,7 +277,7 @@ export default function App() {
   } else if (screen.kind === 'card') {
     body = <ResultsCard shared={screen.shared} catalog={screen.shared.christmas ? xmasCatalog ?? catalog : catalog} onPlay={() => { history.replaceState(null, '', location.pathname); goHome() }} />
   } else if (screen.kind === 'multi') {
-    body = <Multiplayer catalog={catalog} options={options} initialCode={screen.code} onExit={goHome} />
+    body = <Multiplayer catalog={multiCatalog ?? catalog} songsCatalog={catalog} christmasPool={xmasReady && xmasOn ? xmasCatalog?.songs : undefined} options={options} initialCode={screen.code} onExit={goHome} />
   } else if (screen.kind === 'home') {
     body = <Home catalog={catalog} options={options} onOptions={changeOptions} onStart={() => setSetupMode('run')} onDaily={startDaily} onEndless={() => setSetupMode('endless')} onMultiplayer={() => setScreen({ kind: 'multi', code: '' })} onLeaderboard={() => setBoardOpen(true)} onInstall={() => setInstallOpen(true)} onHelp={() => setHelpOpen(true)} daily={loadDaily(today)} dayNumber={dayNumber(today)} stats={stats} christmas={xmasReady ? { on: xmasOn, loading: xmasOn && !xmasCatalog, count: xmasCatalog?.songs.length ?? 0, onToggle: toggleChristmas } : undefined} />
   } else if (screen.kind === 'play') {

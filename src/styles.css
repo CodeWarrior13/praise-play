@@ -805,3 +805,9 @@ body[data-overlay] .page > *:not(.overlay) { filter: saturate(.7); transition: f
 .invite-message { display: grid; gap: 4px; width: 100%; text-align: left; padding: 12px 14px; margin-bottom: 14px; border-radius: 14px; border: 1px dashed var(--line-strong); background: transparent; color: var(--text); font: inherit; cursor: pointer; }
 .invite-message span { font-size: 14px; font-weight: 700; line-height: 1.4; }
 .invite-message small { font-size: 12px; color: var(--accent); font-weight: 800; }
+
+.mp-xmas { margin: 0 0 6px; padding: 12px 14px; border-radius: 14px; background: linear-gradient(135deg, rgba(200,16,46,.25), rgba(15,77,42,.3)); border: 1px solid rgba(246,196,83,.35); font-size: 14px; font-weight: 700; line-height: 1.45; }
+.stats-xmas { display: block; width: 100%; margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; border: 1px dashed var(--line-strong); background: transparent; color: var(--muted); font: inherit; font-size: 13px; font-weight: 700; text-align: left; cursor: pointer; }
+.stats-xmas.on { color: var(--text); border-style: solid; border-color: rgba(246,196,83,.5); background: linear-gradient(135deg, rgba(200,16,46,.18), rgba(15,77,42,.22)); }
+.stats-xmas-note { margin: 0 0 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface); font-size: 14px; font-weight: 700; line-height: 1.45; animation: popIn .4s var(--spring) both; }
+.stats-xmas-note a { color: var(--accent); white-space: nowrap; }
