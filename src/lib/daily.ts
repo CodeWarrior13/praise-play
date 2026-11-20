@@ -50,6 +50,15 @@ export function isCorrectGuess(guess: Song, answer: Song): boolean {
   return guess.id === answer.id || normalize(guess.title) === normalize(answer.title)
 }
 
+/**
+ * Christmas songs with two famous versions (Little Drummer Boy, Santa Claus Is Comin' to Town…):
+ * naming the song but picking the other version only earns 75% of the points.
+ */
+export const OTHER_VERSION_SHARE = 0.75
+export function isOtherVersion(guess: Song, answer: Song): boolean {
+  return guess.id !== answer.id && normalize(guess.title) === normalize(answer.title) && answer.genres.includes('christmas') && guess.genres.includes('christmas')
+}
+
 export function msUntilTomorrow(now = new Date()): number {
   const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
   return next.getTime() - now.getTime()

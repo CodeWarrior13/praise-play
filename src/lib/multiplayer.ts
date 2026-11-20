@@ -7,6 +7,7 @@
  * its TURN relays carry the data when two networks can't connect directly.
  * No game server or account is needed, which suits a static Netlify site.
  */
+import { OTHER_VERSION_SHARE } from './daily'
 import type { DataConnection, Peer as PeerType, PeerOptions } from 'peerjs'
 import type { Song } from './catalog'
 import { getPreview, prefetchPreviews } from './preview'
@@ -53,9 +54,9 @@ export type ServerMessage =
 
 export type ClientMessage =
   | { t: 'hello'; name: string }
-  | { t: 'answer'; index: number; outcome: Outcome; seconds: number; wrong: number; elapsed: number; hints?: number }
+  | { t: 'answer'; index: number; outcome: Outcome; seconds: number; wrong: number; elapsed: number; hints?: number; half?: boolean }
 
-type Answer = { outcome: Outcome; seconds: number; wrong: number; elapsed: number; points: number; hints?: number }
+type Answer = { outcome: Outcome; seconds: number; wrong: number; elapsed: number; points: number; hints?: number; /** Named the other version of a two-version Christmas song: 75% of the points. */ half?: boolean }
 
 export type Listener = (message: ServerMessage) => void
 
@@ -296,7 +297,7 @@ export class HostRoom {
     const seconds = Math.min(30, Math.max(0.1, Number(answer.seconds) || 30))
     const wrong = Math.max(0, Math.floor(Number(answer.wrong) || 0))
     const hints = Math.min(3, Math.max(0, Math.floor(Number(answer.hints) || 0)))
-    const points = answer.outcome === 'named' ? songPoints(seconds, wrong, hints, songBonus(this.songs[this.index]?.popularity ?? 100).bonus) : 0
+    const points = answer.outcome === 'named' ? Math.round(songPoints(seconds, wrong, hints, songBonus(this.songs[this.index]?.popularity ?? 100).bonus) * (answer.half ? OTHER_VERSION_SHARE : 1)) : 0
     this.answers.set(id, { outcome: answer.outcome, seconds, wrong, hints, elapsed: Math.max(0, Number(answer.elapsed) || 0), points })
     this.broadcast({ t: 'status', answered: [...this.answers.keys()] })
     this.checkRoundDone()

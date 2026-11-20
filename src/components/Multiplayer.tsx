@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { artUrl, type Catalog, type Song } from '../lib/catalog'
-import { isCorrectGuess } from '../lib/daily'
+import { OTHER_VERSION_SHARE, isCorrectGuess, isOtherVersion } from '../lib/daily'
 import { getPreview, prefetchPreviews, type Preview } from '../lib/preview'
 import { defaultOptions, filterSongs, type RunOptions } from '../lib/run'
 import { MIN_CLIP, WRONG_GUESS_PENALTY, formatPoints, formatSeconds, hintPenalty, songBonus, songPoints } from '../lib/scoring'
@@ -148,8 +148,8 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit, christ
     await host.current.start(pool)
   }
 
-  function submit(index: number, outcome: Outcome, seconds: number, wrong: number, elapsed: number, hints: number) {
-    const answer = { t: 'answer' as const, index, outcome, seconds, wrong, elapsed, hints }
+  function submit(index: number, outcome: Outcome, seconds: number, wrong: number, elapsed: number, hints: number, half = false) {
+    const answer = { t: 'answer' as const, index, outcome, seconds, wrong, elapsed, hints, half }
     if (host.current) host.current.submit('host', answer)
     else client.current?.answer(answer)
   }
@@ -270,7 +270,7 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit, christ
         answered={answered}
         me={me}
         lives={players.find((p) => p.id === me)?.lives}
-        onAnswer={(outcome, seconds, wrong, elapsed, hints) => submit(view.index, outcome, seconds, wrong, elapsed, hints)}
+        onAnswer={(outcome, seconds, wrong, elapsed, hints, half) => submit(view.index, outcome, seconds, wrong, elapsed, hints, half)}
         onLeave={leave}
       />
     )
@@ -344,7 +344,7 @@ export function Multiplayer({ catalog, options, initialCode = '', onExit, christ
 function MultiRound({ catalog, song, nextSong, index, total, endsAt, players, answered, me, lives, onAnswer, onLeave }: {
   catalog: Catalog; song: Song; nextSong?: Song; index: number; total: number; endsAt: number
   players: PlayerView[]; answered: string[]; me: string; lives?: number
-  onAnswer: (outcome: Outcome, seconds: number, wrong: number, elapsed: number, hints: number) => void; onLeave: () => void
+  onAnswer: (outcome: Outcome, seconds: number, wrong: number, elapsed: number, hints: number, half?: boolean) => void; onLeave: () => void
 }) {
   const [unlocked, setUnlocked] = useState(MIN_CLIP)
   const [wrong, setWrong] = useState<string[]>([])
@@ -367,12 +367,12 @@ function MultiRound({ catalog, song, nextSong, index, total, endsAt, players, an
     return () => { live = false }
   }, [song, nextSong])
 
-  const finish = useCallback((outcome: Outcome, seconds = unlocked, wrongCount = wrong.length) => {
+  const finish = useCallback((outcome: Outcome, seconds = unlocked, wrongCount = wrong.length, half = false) => {
     if (done) return
     const elapsed = Math.round((performance.now() - startedAt.current) / 100) / 10
-    const points = outcome === 'named' ? songPoints(seconds, wrongCount, hintsUsed, songBonus(song.popularity).bonus) : 0
+    const points = outcome === 'named' ? Math.round(songPoints(seconds, wrongCount, hintsUsed, songBonus(song.popularity).bonus) * (half ? OTHER_VERSION_SHARE : 1)) : 0
     setDone({ outcome, points })
-    onAnswer(outcome, seconds, wrongCount, elapsed, hintsUsed)
+    onAnswer(outcome, seconds, wrongCount, elapsed, hintsUsed, half)
   }, [done, unlocked, wrong.length, hintsUsed, onAnswer])
 
   useEffect(() => {
@@ -386,7 +386,7 @@ function MultiRound({ catalog, song, nextSong, index, total, endsAt, players, an
   }, [endsAt, finish, unlimited])
 
   function guess(choice: Song) {
-    if (isCorrectGuess(choice, song)) finish('named')
+    if (isCorrectGuess(choice, song)) finish('named', unlocked, wrong.length, isOtherVersion(choice, song))
     else setWrong((list) => [...list, choice.id])
   }
 

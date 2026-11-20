@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { artUrl, type Catalog, type Song } from '../lib/catalog'
-import { isCorrectGuess } from '../lib/daily'
+import { OTHER_VERSION_SHARE, isCorrectGuess, isOtherVersion } from '../lib/daily'
 import { getPreview, type Preview } from '../lib/preview'
 import { DIFFICULTY, MIN_CLIP, WRONG_GUESS_PENALTY, formatSeconds, hintPenalty, songBonus, songPoints } from '../lib/scoring'
 import { hintsFor } from '../lib/hints'
@@ -81,7 +81,8 @@ export function Round({ catalog, song, nextSong, index, total, level, runScore, 
     return () => { if (audio) audio.src = '' }
   }, [nextSong])
 
-  function finish(outcome: SongResult['outcome']) {
+  const [otherVersion, setOtherVersion] = useState<Song | null>(null)
+  function finish(outcome: SongResult['outcome'], half = false) {
     const elapsed = startedAt.current ? Math.round((performance.now() - startedAt.current) / 100) / 10 : undefined
     setResult({
       songId: song.id,
@@ -90,7 +91,7 @@ export function Round({ catalog, song, nextSong, index, total, level, runScore, 
       seconds: unlocked,
       wrongGuesses: wrong.length,
       hints: hintsUsed,
-      points: outcome === 'named' ? songPoints(unlocked, wrong.length, hintsUsed, bonus.bonus) : 0,
+      points: outcome === 'named' ? Math.round(songPoints(unlocked, wrong.length, hintsUsed, bonus.bonus) * (half ? OTHER_VERSION_SHARE : 1)) : 0,
       bonus: bonus.bonus,
       outcome,
       elapsed,
@@ -98,7 +99,9 @@ export function Round({ catalog, song, nextSong, index, total, level, runScore, 
   }
 
   function guess(choice: Song) {
-    if (isCorrectGuess(choice, song)) finish('named')
+    const half = isOtherVersion(choice, song)
+    if (half) setOtherVersion(choice)
+    if (isCorrectGuess(choice, song)) finish('named', half)
     else setWrong((list) => [...list, choice.id])
   }
 
@@ -170,7 +173,7 @@ export function Round({ catalog, song, nextSong, index, total, level, runScore, 
             {result.outcome === 'named' ? (
               <>
                 <strong>+<CountUp value={result.points} duration={900} /></strong>
-                <span>{result.wrongGuesses ? `${result.wrongGuesses} wrong guess${result.wrongGuesses > 1 ? 'es' : ''} · ` : ''}{result.points === 10_000 ? 'Perfect!' : 'Nice ears!'}</span>
+                <span>{otherVersion ? `Right song, other version (you picked ${otherVersion.artist}): 75% of the points` : <>{result.wrongGuesses ? `${result.wrongGuesses} wrong guess${result.wrongGuesses > 1 ? 'es' : ''} · ` : ''}{result.points === 10_000 ? 'Perfect!' : 'Nice ears!'}</>}</span>
               </>
             ) : (
               <>

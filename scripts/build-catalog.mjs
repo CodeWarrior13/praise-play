@@ -126,22 +126,15 @@ const CHRISTMAS_SONGS = [
   { title: 'Please Come Home for Christmas', artist: 'Eagles', popularity: 72 },
   { title: 'Merry Christmas Everyone', artist: "Shakin' Stevens", popularity: 72 },
   { title: 'Christmas Eve/Sarajevo 12/24', artist: 'Trans-Siberian Orchestra', popularity: 78 },
-  { title: 'Wizards in Winter', artist: 'Trans-Siberian Orchestra', popularity: 70 },
   { title: 'Like It\'s Christmas', artist: 'Jonas Brothers', popularity: 70 },
   { title: 'Cozy Little Christmas', artist: 'Katy Perry', popularity: 66 },
-  { title: 'Christmas Saves the Year', artist: 'twenty one pilots', popularity: 66 },
-  { title: 'Cold December Night', artist: 'Michael Bublé', popularity: 68 },
   { title: 'Christmas Wrapping', artist: 'The Waitresses', popularity: 68 },
   { title: 'Christmas in Hollis', artist: 'Run-DMC', popularity: 66 },
   { title: 'Mary\'s Boy Child / Oh My Lord', artist: 'Boney M.', popularity: 66 },
   { title: 'Thank God It\'s Christmas', artist: 'Queen', popularity: 64 },
   { title: 'What Christmas Means to Me', artist: 'Stevie Wonder', popularity: 62 },
   { title: 'Hard Candy Christmas', artist: 'Dolly Parton', popularity: 62 },
-  { title: 'Pretty Paper', artist: 'Roy Orbison', popularity: 60 },
   { title: 'Deck the Halls', artist: 'Nat "King" Cole', popularity: 60 },
-  { title: 'Santa\'s Coming for Us', artist: 'Sia', popularity: 62 },
-  { title: 'Oh Santa!', artist: 'Mariah Carey', popularity: 66 },
-  { title: 'Christmas Tree', artist: 'Lady Gaga', popularity: 58 },
   // Pentatonix
   { title: 'Mary, Did You Know?', artist: 'Pentatonix', popularity: 92 },
   { title: 'Little Drummer Boy', artist: 'Pentatonix', popularity: 88 },
@@ -160,7 +153,6 @@ const CHRISTMAS_SONGS = [
   { title: 'Christmas Offering', artist: 'Casting Crowns', popularity: 64 },
   { title: 'Emmanuel (Hallowed Manger Ground)', artist: 'Chris Tomlin', popularity: 60 },
   { title: 'Born Is the King', artist: 'Hillsong Worship', popularity: 58 },
-  { title: 'Hallelujah (Light Has Come)', artist: 'BarlowGirl', popularity: 56 },
   { title: 'Go Tell It on the Mountain', artist: 'Mahalia Jackson', popularity: 58 },
   // From the player's own Christmas playlist
   { title: "It's a Marshmallow World", artist: 'Jo Stafford', popularity: 66 },
@@ -171,6 +163,23 @@ const CHRISTMAS_SONGS = [
   { title: 'Baby Boy', artist: 'for KING & COUNTRY', popularity: 60 },
   // keepBoth: a second, very different version of a song that's already on the list.
   { title: 'Little Drummer Boy', artist: 'for KING & COUNTRY', popularity: 70, keepBoth: true },
+  // From the player's "Christmas Hits" playlist (most iconic versions)
+  { title: 'Santa Claus Is Comin\' to Town', artist: 'Bruce Springsteen', popularity: 82, keepBoth: true },
+  { title: 'Christmas (Baby Please Come Home)', artist: 'Mariah Carey', popularity: 80, keepBoth: true },
+  { title: 'I Saw Mommy Kissing Santa Claus', artist: 'Jackson 5', popularity: 74 },
+  { title: 'I Wish It Could Be Christmas Everyday', artist: 'Wizzard', popularity: 72 },
+  { title: 'Merry Christmas, Happy Holidays', artist: '*NSYNC', popularity: 72 },
+  { title: 'Where Are You Christmas', artist: 'Faith Hill', popularity: 72 },
+  { title: 'The First Noël', artist: 'Josh Groban', popularity: 66 },
+  { title: 'Lonely This Christmas', artist: 'Mud', popularity: 64 },
+  // The great carols
+  { title: 'Away in a Manger', artist: 'Carrie Underwood', popularity: 70 },
+  { title: 'What Child Is This?', artist: 'Josh Groban', popularity: 66 },
+  { title: 'O Come, O Come, Emmanuel', artist: 'Lauren Daigle', popularity: 68 },
+  { title: 'O Little Town of Bethlehem', artist: 'Nat "King" Cole', popularity: 64 },
+  { title: 'Angels We Have Heard On High', artist: 'Josh Groban', popularity: 64 },
+  { title: 'We Three Kings', artist: 'Pentatonix', popularity: 62 },
+  { title: 'It Came Upon a Midnight Clear', artist: 'Frank Sinatra', popularity: 60 },
 ]
 
 const CHRISTMAS = /christmas|silent night|holy night|joy to the world|hark the herald|come all ye faithful|go tell it on the mountain|little drummer boy|mary,? did you know|away in a manger|what child is this|angels we have heard|god rest ye|first no[eë]l|o come,? o come,? emmanuel|carol of the bells|o little town of bethlehem|it came upon the midnight|we three kings|feliz navidad|white christmas|noel\b/i
