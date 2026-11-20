@@ -26,6 +26,8 @@ export function ShareActions({ link, message, imageUrl, fileName, onBeforeShare 
   const [busy, setBusy] = useState<null | 'card' | 'story'>(null)
   const [failed, setFailed] = useState(false)
   const pictures = useRef<Map<string, Promise<Picture | null>>>(new Map())
+  /** Pictures that have finished downloading, so a tap can share them without waiting. */
+  const ready = useRef<Map<string, Picture>>(new Map())
   const text = `${message} ${link}`
   const phone = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches
 
@@ -37,7 +39,9 @@ export function ShareActions({ link, message, imageUrl, fileName, onBeforeShare 
         .then(async (response) => {
           if (!response.ok) throw new Error(String(response.status))
           const file = new File([await response.blob()], `${fileName}${size === 'story' ? '-story' : ''}.jpg`, { type: 'image/jpeg' })
-          return { link, size, file }
+          const pic = { link, size, file }
+          ready.current.set(key, pic)
+          return pic
         })
         .catch(() => { pictures.current.delete(key); return null })
       pictures.current.set(key, found)
@@ -47,7 +51,7 @@ export function ShareActions({ link, message, imageUrl, fileName, onBeforeShare 
 
   // Get the card picture ready while the player picks a colour.
   useEffect(() => {
-    const timer = window.setTimeout(() => { void picture('link'); if (phone) void picture('story') }, 700)
+    const timer = window.setTimeout(() => { void picture('link'); if (phone) void picture('story') }, 400)
     return () => window.clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [link])
@@ -59,24 +63,33 @@ export function ShareActions({ link, message, imageUrl, fileName, onBeforeShare 
     window.setTimeout(() => setCopied(false), 2000)
   }
 
-  /** The card picture + message + link in one go, through the phone's share sheet. */
+  /**
+   * The card picture + message + link in one go. Phones only open the share sheet
+   * right after a tap, so we never wait here: if the picture is ready it goes
+   * along, otherwise the link goes on its own (its preview still shows the card).
+   */
   async function share(size: 'link' | 'story') {
     onBeforeShare?.()
     setFailed(false)
-    setBusy(size === 'link' ? 'card' : 'story')
+    const pic = ready.current.get(`${size}|${link}`)
     try {
-      const pic = await picture(size)
       if (pic && navigator.canShare?.({ files: [pic.file] })) {
         await navigator.share({ files: [pic.file], text, title: 'Praise Play' })
-      } else if (size === 'story' && pic) {
-        download(pic.file)
       } else if (navigator.share && phone) {
+        if (size === 'story') { setBusy('story'); const later = await picture('story'); setBusy(null); if (later) download(later.file); return }
         await navigator.share({ title: 'Praise Play', text: message, url: link })
+      } else if (size === 'story') {
+        setBusy('story')
+        const later = await picture('story')
+        if (later) download(later.file); else setFailed(true)
       } else {
         await copy()
       }
     } catch (error) {
-      if ((error as Error).name !== 'AbortError') setFailed(true)
+      if ((error as Error).name !== 'AbortError') {
+        // Some apps refuse pictures: fall back to sharing just the link.
+        try { await navigator.share?.({ title: 'Praise Play', text: message, url: link }) } catch { setFailed(true) }
+      }
     } finally {
       setBusy(null)
     }
@@ -93,8 +106,8 @@ export function ShareActions({ link, message, imageUrl, fileName, onBeforeShare 
 
   return (
     <div className="share-actions">
-      <button className="primary big wide shine" onClick={() => share('link')} disabled={busy !== null}>
-        {busy === 'card' ? <><span className="spinner small" /> Getting your card…</> : 'Share'}
+      <button className="primary big wide shine" onClick={() => share('link')}>
+        Share
       </button>
       <div className="share-apps" role="list">
         <button role="listitem" className="share-app" onClick={copy}>
