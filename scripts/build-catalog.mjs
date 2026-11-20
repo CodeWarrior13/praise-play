@@ -169,6 +169,8 @@ const CHRISTMAS_SONGS = [
   { title: 'Joy! He Shall Reign', artist: 'Big Daddy Weave', popularity: 58 },
   { title: 'God Rest Ye Merry Gentlemen', artist: 'Tenth Avenue North', popularity: 62 },
   { title: 'Baby Boy', artist: 'for KING & COUNTRY', popularity: 60 },
+  // keepBoth: a second, very different version of a song that's already on the list.
+  { title: 'Little Drummer Boy', artist: 'for KING & COUNTRY', popularity: 70, keepBoth: true },
 ]
 
 const CHRISTMAS = /christmas|silent night|holy night|joy to the world|hark the herald|come all ye faithful|go tell it on the mountain|little drummer boy|mary,? did you know|away in a manger|what child is this|angels we have heard|god rest ye|first no[eë]l|o come,? o come,? emmanuel|carol of the bells|o little town of bethlehem|it came upon the midnight|we three kings|feliz navidad|white christmas|noel\b/i
@@ -453,12 +455,12 @@ async function main() {
     if (seenTracks.has(track.trackId)) {
       // Already pulled in from the artist's own catalog: move it onto the Christmas list.
       const entry = entries.find((e) => e.track.trackId === track.trackId)
-      if (entry) Object.assign(entry, { christmas: true, popularity: extra.popularity, genres: ['christmas'] })
+      if (entry) Object.assign(entry, { christmas: true, popularity: extra.popularity, genres: ['christmas'], keepBoth: extra.keepBoth })
       continue
     }
     seenTracks.add(track.trackId)
     const artistIndex = artistIndexByName.get(normName(extra.artist)) ?? addArtist(extra.artist, ['christmas'], false)
-    entries.push({ track, title: cleanTitle(track.trackName), key: normTitle(cleanTitle(track.trackName)), year: Number(track.releaseDate?.slice(0, 4)) || undefined, artistIndex, popularity: extra.popularity, genres: ['christmas'], playlist: false, christmas: true })
+    entries.push({ track, title: cleanTitle(track.trackName), key: normTitle(cleanTitle(track.trackName)), year: Number(track.releaseDate?.slice(0, 4)) || undefined, artistIndex, popularity: extra.popularity, genres: ['christmas'], playlist: false, christmas: true, keepBoth: extra.keepBoth })
   }
 
   const isChristmas = (entry) => entry.christmas || CHRISTMAS.test(entry.title) || CHRISTMAS.test(entry.track.collectionName ?? '')
@@ -467,7 +469,7 @@ async function main() {
   // One version per song: if two picks share a title, keep the most popular.
   const christmasByTitle = new Map()
   for (const entry of entries.filter((e) => e.christmas).sort((a, b) => b.popularity - a.popularity)) {
-    const bare = normTitle(entry.title.replace(/\s*[([].*?[)\]]/g, ''))
+    const bare = normTitle(entry.title.replace(/\s*[([].*?[)\]]/g, '')) + (entry.keepBoth ? `|${entry.artistIndex}` : '')
     if (!christmasByTitle.has(bare)) christmasByTitle.set(bare, entry)
   }
   const christmasEntries = [...christmasByTitle.values()]
