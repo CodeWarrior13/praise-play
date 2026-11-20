@@ -379,10 +379,12 @@ kbd { display: inline-block; min-width: 20px; padding: 1px 6px; border-radius: 6
 /* ---------- Help overlay ---------- */
 .top-actions { display: flex; gap: 8px; }
 .top-actions > .icon-button { font-weight: 800; font-size: 16px; }
-.overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: color-mix(in srgb, var(--bg) 55%, transparent); backdrop-filter: blur(14px) saturate(120%); -webkit-backdrop-filter: blur(14px) saturate(120%); animation: fadeIn .25s var(--ease); }
+.overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: color-mix(in srgb, var(--bg) 55%, transparent); backdrop-filter: blur(14px) saturate(120%); -webkit-backdrop-filter: blur(14px) saturate(120%); animation: dimIn .2s var(--ease); }
+@keyframes dimIn { from { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; } }
 body[data-overlay] .page > *:not(.overlay) { filter: saturate(.7); transition: filter .3s; }
 .help-dialog { width: 100%; max-width: 520px; max-height: calc(100dvh - 32px); overflow-y: auto; padding: 22px; border-radius: 26px; background: var(--bg-2); border: 1px solid var(--line-strong); box-shadow: 0 40px 100px -20px rgba(0,0,0,.7), 0 1px 0 rgba(255,255,255,.08) inset; animation: dialogIn .45s var(--spring); }
-@keyframes dialogIn { from { opacity: 0; transform: translateY(24px) scale(.94); } }
+/* Solid from the first frame (no fade), so the page never shows through a dialog as it opens. */
+@keyframes dialogIn { from { transform: translateY(24px) scale(.96); } }
 .help-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
 .help-head h2 { font-family: 'Fraunces', Georgia, serif; font-size: 30px; letter-spacing: -.8px; margin: 10px 0 0; }
 .pause-icon { font-size: 8px; letter-spacing: 1px; animation: breathe 1.6s ease-in-out infinite; }
@@ -855,3 +857,9 @@ body[data-overlay] .page > *:not(.overlay) { filter: saturate(.7); transition: f
 .app-x .share-app-icon { background: #000; color: #fff; border-color: rgba(255,255,255,.2); }
 .share-app-icon.story { background: linear-gradient(45deg, #feda75, #fa7e1e, #d62976, #962fbf, #4f5bd5); border-color: transparent; }
 .share-failed { margin: 0; color: var(--bad); font-size: 13px; font-weight: 700; text-align: center; }
+
+/* Share screens: the card slides up solid (no see-through), covers fade in once loaded. */
+.share-card-dialog { animation: sheetIn .38s var(--spring); }
+@keyframes sheetIn { from { transform: translateY(28px) scale(.97); } }
+.invite-canvas img { opacity: 0; transition: opacity .3s; background: rgba(255,255,255,.12); }
+.invite-canvas img.loaded { opacity: 1; }

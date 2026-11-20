@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { artUrl, type Song } from '../lib/catalog'
 import { CARD_STYLES } from '../lib/shareRun'
 import { inviteLine, type Invite } from '../lib/invite'
@@ -10,7 +10,8 @@ import { inviteLine, type Invite } from '../lib/invite'
 export function InviteCard({ invite, covers }: { invite: Invite; covers: Song[] }) {
   const box = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(0.4)
-  useEffect(() => {
+  // Measure before the first paint, so the card never shows at the wrong size.
+  useLayoutEffect(() => {
     const el = box.current
     if (!el) return
     const fit = () => setScale(el.clientWidth / 1200)
@@ -53,7 +54,7 @@ export function InviteCard({ invite, covers }: { invite: Invite; covers: Song[] 
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 168px)', gap: 14 }}>
-            {covers.map((song) => <img key={song.id} src={artUrl(song, 250)} alt="" width={168} height={168} style={{ borderRadius: 16, objectFit: 'cover', display: 'block' }} />)}
+            {covers.map((song) => <img key={song.id} src={artUrl(song, 250)} alt="" width={168} height={168} style={{ borderRadius: 16, objectFit: 'cover', display: 'block' }} onLoad={(e) => e.currentTarget.classList.add('loaded')} ref={(el) => { if (el?.complete) el.classList.add('loaded') }} />)}
           </div>
           <div style={{ ...row, gap: 16, padding: '14px 20px', borderRadius: 999, background: dark ? 'rgba(255,255,255,.55)' : 'rgba(0,0,0,.26)', width: 532, boxSizing: 'border-box' }}>
             <div style={{ ...row, justifyContent: 'center', width: 48, height: 48, borderRadius: 999, background: dark ? '#1d1420' : '#fff', flexShrink: 0 }}>{play(22, dark ? '#fff' : '#2a0f5c')}</div>
