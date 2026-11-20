@@ -4,6 +4,7 @@
  * messages, email and social apps. People are sent straight on to the game.
  */
 import { readSharedRun, shareMessage } from '../../src/lib/shareRun'
+import { inviteLine, inviteTitle, readInvite } from '../../src/lib/invite'
 
 const escape = (text: string) => text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string)
 
@@ -11,13 +12,15 @@ export default async (request: Request) => {
   const url = new URL(request.url)
   const r = url.searchParams.get('r') ?? ''
   const shared = readSharedRun(r)
+  const i = url.searchParams.get('i') ?? ''
+  const invite = shared ? null : readInvite(i) ?? readInvite('')!
   const target = shared ? `${url.origin}/?r=${encodeURIComponent(r)}` : `${url.origin}/`
-  const title = shared ? shareMessage(shared.total, shared.name) : 'Praise Play'
+  const title = shared ? shareMessage(shared.total, shared.name) : inviteTitle(invite!)
   const named = shared ? shared.results.filter((x) => x.outcome === 'named').length : 0
   const description = shared
     ? `Named ${named} of ${shared.results.length} Christian songs from as little as 0.1 seconds. Tap to see the songs and take them on.`
-    : 'Name the Christian song from 0.1 seconds.'
-  const image = shared ? `${url.origin}/api/card?r=${encodeURIComponent(r)}` : `${url.origin}/icons/sanctuary-512.png`
+    : `Name the Christian song from 0.1 seconds. ${inviteLine(invite!)}`
+  const image = shared ? `${url.origin}/api/card?r=${encodeURIComponent(r)}` : `${url.origin}/api/card?i=${encodeURIComponent(i)}`
   const html = `<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">

@@ -331,7 +331,7 @@ export default function App() {
             <span>praise<b>play</b></span>
           </button>
           <div className="top-actions">
-            <ShareButton />
+            <ShareButton catalog={catalog} christmas={xmasReady && xmasOn ? xmasCatalog : null} />
             <button className="icon-button" onClick={() => setBoardOpen(true)} aria-label="Leaderboard" title="Leaderboard">🏆</button>
             <button className="icon-button" onClick={() => setHelpOpen(true)} aria-label="How to play (H)" title="How to play (H)">?</button>
             <ThemePicker value={themeId} onChange={changeTheme} onSecret={() => { history.pushState(null, '', '/stats'); setScreen({ kind: 'stats' }) }} />
