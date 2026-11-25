@@ -872,3 +872,14 @@ body[data-overlay] .page > *:not(.overlay) { filter: saturate(.7); transition: f
   .art-stack .vinyl { width: 78px; height: 78px; top: 5px; left: 22px; }
   .verdict span { overflow-wrap: anywhere; }
 }
+
+/* Sound wave on the clip slider: sharp, flat theme colours, no glow. */
+.scrubber.has-wave .scrubber-rail { height: 56px; background: none; box-shadow: none; overflow: visible; }
+.waveform { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.wave-locked { fill: color-mix(in srgb, var(--text) 18%, transparent); }
+.wave-unlocked { fill: color-mix(in srgb, var(--accent) 45%, transparent); }
+.wave-played { fill: var(--accent); }
+.scrubber.has-wave .scrubber-handle { top: 6px; width: 2px; height: 64px; margin-left: -1px; border-radius: 2px; background: var(--text); box-shadow: none; }
+.scrubber.has-wave .scrubber-handle::after { content: ''; position: absolute; left: 50%; top: -6px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--text); }
+.scrubber.has-wave:hover .scrubber-handle, .scrubber.has-wave.dragging .scrubber-handle { transform: none; }
+.scrubber.has-wave.dragging .scrubber-handle::after { transform: scale(1.3); }

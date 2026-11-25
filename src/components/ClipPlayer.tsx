@@ -5,6 +5,7 @@ import { loadSetting, saveSetting } from '../lib/storage'
 import { CountUp, Equalizer } from './Fx'
 import { isPaused, onPauseChange } from '../lib/pause'
 import { onShortcut } from '../lib/keys'
+import { Waveform } from './Waveform'
 
 const TICKS = [0.1, 0.5, 1, 3, 10, 30]
 const JUMPS = [0.1, 0.5, 1, 3]
@@ -172,6 +173,10 @@ export function ClipPlayer({ preview, startSeconds, unlocked, onUnlock, penalty 
   }
 
   const scale = reveal ? (p: number) => p / MAX_CLIP : toPosition
+  const wave = ready ? (reveal ? preview.wave?.linear : preview.wave?.log) : undefined
+  // The first 0.1s sits at the very left: show a sliver of it so the start is visible.
+  const unlockedAt = reveal ? 1 : Math.max(0.012, scale(shown))
+  const playedAt = playing ? Math.max(reveal ? 0 : 0.012, scale(Math.max(MIN_CLIP / 3, position))) : 0
   const worth = Math.max(0, Math.round((clipWorth(shown) * bonus - penalty) / 10) * 10)
 
   return (
@@ -187,7 +192,7 @@ export function ClipPlayer({ preview, startSeconds, unlocked, onUnlock, penalty 
 
       <div
         ref={trackRef}
-        className={`scrubber${dragTo !== null ? ' dragging' : ''}`}
+        className={`scrubber${dragTo !== null ? ' dragging' : ''}${wave ? ' has-wave' : ''}`}
         role={reveal ? undefined : 'slider'}
         tabIndex={reveal ? -1 : 0}
         aria-label="Clip length"
@@ -202,8 +207,12 @@ export function ClipPlayer({ preview, startSeconds, unlocked, onUnlock, penalty 
         onKeyDown={onKeyDown}
       >
         <div className="scrubber-rail">
-          <div className="scrubber-unlocked" style={{ width: `${scale(shown) * 100}%` }} />
-          {playing && <div className="scrubber-progress" style={{ width: `${scale(Math.max(MIN_CLIP / 3, position)) * 100}%` }} />}
+          {wave ? <Waveform points={wave} unlocked={unlockedAt} played={playedAt} /> : (
+            <>
+              <div className="scrubber-unlocked" style={{ width: `${scale(shown) * 100}%` }} />
+              {playing && <div className="scrubber-progress" style={{ width: `${scale(Math.max(MIN_CLIP / 3, position)) * 100}%` }} />}
+            </>
+          )}
         </div>
         {!reveal && <div className="scrubber-handle" style={{ left: `${scale(shown) * 100}%` }} />}
         {!reveal && (

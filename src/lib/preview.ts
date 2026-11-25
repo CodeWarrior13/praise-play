@@ -1,5 +1,6 @@
 import type { Song } from './catalog'
 import { findOnset } from './onset'
+import { measureWave, type Wave } from './wave'
 
 export type Preview = {
   audioUrl: string
@@ -10,6 +11,8 @@ export type Preview = {
   year?: number
   /** Where the music actually starts (seconds), skipping a silent or near-silent intro. */
   startSeconds?: number
+  /** The sound wave drawn on the slider (see wave.ts). */
+  wave?: Wave
 }
 
 type ItunesTrack = {
@@ -81,7 +84,11 @@ async function withOnset(preview: Preview): Promise<Preview> {
     const bytes = await response.arrayBuffer()
     const local = URL.createObjectURL(new Blob([bytes], { type: 'audio/mp4' }))
     const decoded = await new Ctx(1, 1, 22050).decodeAudioData(bytes.slice(0))
-    return { ...preview, audioUrl: local, startSeconds: findOnset(decoded.getChannelData(0), decoded.sampleRate) }
+    const data = decoded.getChannelData(0)
+    const startSeconds = findOnset(data, decoded.sampleRate)
+    let wave: Wave | undefined
+    try { wave = measureWave(data, decoded.sampleRate, startSeconds ?? 0) } catch { /* the plain slider still works */ }
+    return { ...preview, audioUrl: local, startSeconds, wave }
   } catch {
     return preview
   }
